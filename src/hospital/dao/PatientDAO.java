@@ -123,6 +123,28 @@ public class PatientDAO {
         }
     }
     
+    public int getTotalPatientsCount() throws SQLException {
+        String sql = "SELECT COUNT(*) FROM patients";
+        
+        try (Connection conn = DatabaseConfig.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            return rs.next() ? rs.getInt(1) : 0;
+        }
+    }
+    
+    public int getTodayRegistrationsCount() throws SQLException {
+        String sql = "SELECT COUNT(*) FROM patients WHERE DATE(registered_at) = CURDATE()";
+        
+        try (Connection conn = DatabaseConfig.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            return rs.next() ? rs.getInt(1) : 0;
+        }
+    }
+    
     private Patient mapResultSetToPatient(ResultSet rs) throws SQLException {
         Patient patient = new Patient();
         patient.setPatientId(rs.getInt("patient_id"));

@@ -14,6 +14,7 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.sql.SQLException;
+import java.sql.Timestamp;  // ADD THIS IMPORT
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -55,6 +56,9 @@ class AppointmentBookingPanel extends JPanel {
     }
 
     private void initializeComponents() {
+        UIManager.put("Button.foreground", Color.BLACK);
+        UIManager.put("OptionPane.buttonForeground", Color.BLACK);
+       UIManager.put("Button.disabledText", Color.DARK_GRAY);
         setBackground(Constants.BACKGROUND_COLOR);
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
@@ -84,7 +88,7 @@ class AppointmentBookingPanel extends JPanel {
 
         bookAppointmentBtn.setEnabled(false);
 
-        String[] columns = { "Token", "Patient", "Doctor", "Date", "Status" };
+        String[] columns = { "Token", "Patient", "Doctor", "Date","Fee", "Status" };
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -149,14 +153,6 @@ class AppointmentBookingPanel extends JPanel {
         formPanel.add(appointmentDateField, gbc);
         row++;
 
-        // Symptoms
-        // gbc.gridx = 0; gbc.gridy = row;
-        // formPanel.add(new JLabel("Symptoms:"), gbc);
-        // gbc.gridx = 1; gbc.gridwidth = 2;
-        // formPanel.add(new JScrollPane(symptomsArea), gbc);
-        // gbc.gridwidth = 1;
-        // row++;
-
         // Token and Fee Display
         JPanel infoPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 0));
         infoPanel.setBackground(Color.WHITE);
@@ -202,13 +198,12 @@ class AppointmentBookingPanel extends JPanel {
     }
 
     private void loadDoctors() {
-
         try {
             doctors = doctorDAO.getAllDoctors();
-            System.out.println("Doctors fetched: " + doctors);
             doctorCombo.removeAllItems();
             for (Doctor doctor : doctors) {
-                doctorCombo.addItem(doctor.getDoctorId() + " - Dr. " + doctor.getUsername());
+                // Show user_id in the combo box since that's what appointments table uses
+                doctorCombo.addItem(doctor.getUserId() + " - Dr. " + doctor.getUsername());
             }
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Error loading doctors: " + e.getMessage());
@@ -279,6 +274,11 @@ class AppointmentBookingPanel extends JPanel {
         if (selectedIndex >= 0 && doctors != null && selectedIndex < doctors.size()) {
             Doctor doctor = doctors.get(selectedIndex);
             consultationFeeLabel.setText("Fee: ₹" + String.format("%.2f", doctor.getConsultationFee()));
+            
+            // Debug info
+            // System.out.println("Selected Doctor - User ID: " + doctor.getUserId() + 
+            //                   ", Doctor ID: " + doctor.getDoctorId() + 
+            //                   ", Fee: " + doctor.getConsultationFee());
         }
     }
 
@@ -297,11 +297,20 @@ class AppointmentBookingPanel extends JPanel {
             int doctorIndex = doctorCombo.getSelectedIndex();
             Doctor doctor = doctors.get(doctorIndex);
             LocalDate appointmentDate = LocalDate.parse(appointmentDateField.getText().trim());
+            double consultationFee = doctor.getConsultationFee();
 
-            // ✅ CHECK 1: Check if doctor is available (not on leave)
+            // System.out.println("DEBUG: Doctor: " + doctor.getUsername() + 
+            //                   ", User ID: " + doctor.getUserId() +
+            //                   ", Doctor ID: " + doctor.getDoctorId() +
+            //                   ", Consultation Fee: " + doctor.getConsultationFee());
+            
+            //  FIX: Use user_id for all doctor-related operations
+            int doctorUserId = doctor.getUserId();
+            
+            //  CHECK 1: Check if doctor is available (not on leave)
             DoctorScheduleDAO scheduleDAO = new DoctorScheduleDAO();
-            if (!scheduleDAO.isDoctorAvailable(doctor.getDoctorId(), appointmentDate)) {
-                DoctorSchedule schedule = scheduleDAO.getScheduleForDate(doctor.getDoctorId(), appointmentDate);
+            if (!scheduleDAO.isDoctorAvailable(doctorUserId, appointmentDate)) {
+                DoctorSchedule schedule = scheduleDAO.getScheduleForDate(doctorUserId, appointmentDate);
                 String reason = schedule != null && schedule.getReason() != null ? "\nReason: " + schedule.getReason()
                         : "";
 
@@ -313,10 +322,10 @@ class AppointmentBookingPanel extends JPanel {
                 return;
             }
 
-            // ✅ CHECK 2: Prevent same patient-doctor duplicate
+            //  CHECK 2: Prevent same patient-doctor duplicate
             if (appointmentDAO.hasAppointmentWithDoctor(
                     selectedPatient.getPatientId(),
-                    doctor.getDoctorId(),
+                    doctorUserId, // Use user_id here
                     appointmentDate)) {
                 JOptionPane.showMessageDialog(this,
                         "This patient already has an appointment with Dr. " + doctor.getUsername() +
@@ -350,14 +359,14 @@ class AppointmentBookingPanel extends JPanel {
             }
 
             // Get next token for this doctor on this date
-            int tokenNumber = appointmentDAO.getNextTokenNumber(doctor.getDoctorId(), appointmentDate);
+            int tokenNumber = appointmentDAO.getNextTokenNumber(doctorUserId, appointmentDate); // Use user_id
 
             Appointment appointment = new Appointment();
             appointment.setPatientId(selectedPatient.getPatientId());
-            appointment.setDoctorId(doctor.getDoctorId());
+            appointment.setDoctorId(doctorUserId); // Use user_id here
             appointment.setAppointmentDateTime(appointmentDate.atStartOfDay());
             appointment.setTokenNumber(tokenNumber);
-            appointment.setConsultationFee(doctor.getConsultationFee());
+            appointment.setConsultationFee(consultationFee);
             appointment.setStatus("SCHEDULED");
             appointment.setCreatedBy(currentUser.getUserId());
 
@@ -370,7 +379,7 @@ class AppointmentBookingPanel extends JPanel {
                                 "Patient: " + selectedPatient.getFirstName() + "\n" +
                                 "Doctor: Dr. " + doctor.getUsername() + "\n" +
                                 "Date: " + appointmentDate + "\n" +
-                                "Fee: ₹" + String.format("%.2f", doctor.getConsultationFee()),
+                                "Consultation Fee: ₹" + String.format("%.2f", consultationFee),
                         "Success",
                         JOptionPane.INFORMATION_MESSAGE);
 
@@ -395,8 +404,9 @@ class AppointmentBookingPanel extends JPanel {
 
     private void loadTodaysAppointments() {
         try {
-            List<Appointment> appointments = appointmentDAO.getTodaysAppointments(currentUser.getUserId());
-            displayAppointments(appointments);
+            // show all today's appointments (not filtered by current user/doctor)
+            List<Appointment> appointments = appointmentDAO.getTodaysAppointments();
+            displayAppointments(appointments);  // FIXED: removed extra 'i'
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Error loading appointments: " + e.getMessage());
         }
@@ -405,12 +415,19 @@ class AppointmentBookingPanel extends JPanel {
     private void displayAppointments(List<Appointment> appointments) {
         tableModel.setRowCount(0);
         for (Appointment apt : appointments) {
+            // Skip null appointments
+            if (apt == null) {
+                System.err.println("DEBUG: Found null appointment, skipping");
+                continue;
+            }
+            
             Object[] row = {
-                    apt.getTokenNumber(),
-                    apt.getPatientName(),
-                    apt.getDoctorName(),
-                    apt.getAppointmentDateTime().toLocalDate(),
-                    apt.getStatus()
+                apt.getTokenNumber(),
+                apt.getPatientName() != null ? apt.getPatientName() : "Unknown Patient",
+                apt.getDoctorName() != null ? apt.getDoctorName() : "Unknown Doctor",
+                apt.getAppointmentDateTime() != null ? apt.getAppointmentDateTime().toLocalDate() : LocalDate.now(),
+                "₹" + String.format("%.2f", apt.getConsultationFee()),
+                apt.getStatus() != null ? apt.getStatus() : "UNKNOWN"
             };
             tableModel.addRow(row);
         }
@@ -429,7 +446,7 @@ class AppointmentBookingPanel extends JPanel {
 
     private void styleButton(JButton btn, Color color) {
         btn.setBackground(color);
-        btn.setForeground(Color.WHITE);
+        btn.setForeground(Color.BLACK);
         btn.setFocusPainted(false);
         btn.setPreferredSize(new Dimension(150, 38));
     }

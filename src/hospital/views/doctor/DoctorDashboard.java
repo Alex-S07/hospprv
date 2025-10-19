@@ -31,6 +31,9 @@ public class DoctorDashboard extends BaseFrame {
     
     @Override
     protected void initializeComponents() {
+        UIManager.put("Button.foreground", Color.BLACK);
+        UIManager.put("OptionPane.buttonForeground", Color.BLACK);
+       UIManager.put("Button.disabledText", Color.DARK_GRAY);
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         
