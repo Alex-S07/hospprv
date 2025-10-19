@@ -1,249 +1,306 @@
 package hospital.views.receptionist;
 
-
 import hospital.dao.PatientDAO;
 import hospital.models.Patient;
 import hospital.models.User;
-import hospital.utils.Constants;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.sql.SQLException;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.Period;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
-class PatientRegistrationPanel extends JPanel {
+public class PatientRegistrationPanel extends JPanel {
     private User currentUser;
     private PatientDAO patientDAO;
-    private JTable patientTable;
+    private JTable patientsTable;
     private DefaultTableModel tableModel;
-    
-    private JTextField firstNameField;
-    private JTextField lastNameField;
-    private JTextField dobField;
-    private JComboBox<String> genderCombo;
-    private JTextArea medicalHistoryArea;
     private JTextField searchField;
-    
-    private JButton addBtn;
-    private JButton updateBtn;
-    private JButton deleteBtn;
-    private JButton clearBtn;
-    
-    private Patient selectedPatient;
+    private JButton addButton, editButton, deleteButton, searchButton, clearButton;
     
     public PatientRegistrationPanel(User user) {
         this.currentUser = user;
         this.patientDAO = new PatientDAO();
         initializeComponents();
         setupLayout();
-        setupEventHandlers();
         loadPatients();
     }
     
     private void initializeComponents() {
-        setBackground(Constants.BACKGROUND_COLOR);
+        setBackground(Color.WHITE);
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         
-        // Form fields
-        firstNameField = new JTextField(20);
-        lastNameField = new JTextField(20);
-        dobField = new JTextField(20);
-        dobField.setToolTipText("Format: YYYY-MM-DD");
-        
-        String[] genders = {"MALE", "FEMALE", "OTHER"};
-        genderCombo = new JComboBox<>(genders);
-        
-        medicalHistoryArea = new JTextArea(4, 20);
-        medicalHistoryArea.setLineWrap(true);
-        
-        searchField = new JTextField(20);
-        
-        // Table
-        String[] columns = {"ID", "Name", "Age", "Gender", "Registered Date"};
+        // Table setup
+        String[] columns = {"ID", "First Name", "Last Name", "Date of Birth", "Age", "Gender", "Medical History", "Registered Date"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
             }
         };
-        
-        patientTable = new JTable(tableModel);
-        patientTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        patientTable.setRowHeight(28);
+        patientsTable = new JTable(tableModel);
+        patientsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        patientsTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
+        patientsTable.setBackground(Color.WHITE);
+        patientsTable.setForeground(Color.BLACK);
+        patientsTable.setGridColor(new Color(200, 200, 200));
+        patientsTable.getTableHeader().setBackground(new Color(240, 240, 240));
+        patientsTable.getTableHeader().setForeground(Color.BLACK);
+        patientsTable.setSelectionBackground(new Color(0, 100, 200));
+        patientsTable.setSelectionForeground(Color.WHITE);
+        patientsTable.setRowHeight(25);
         
         // Buttons
-        addBtn = new JButton("Register Patient");
-        updateBtn = new JButton("Update");
-        deleteBtn = new JButton("Delete");
-        clearBtn = new JButton("Clear");
+        addButton = createStyledButton("➕ Add Patient");
+        editButton = createStyledButton("✏️ Edit Patient");
+        deleteButton = createStyledButton("🗑️ Delete Patient");
+        searchButton = createStyledButton("🔍 Search");
+        clearButton = createStyledButton("🔄 Clear");
         
-        styleButton(addBtn, Constants.SUCCESS_COLOR);
-        styleButton(updateBtn, Constants.PRIMARY_COLOR);
-        styleButton(deleteBtn, Constants.DANGER_COLOR);
-        styleButton(clearBtn, Constants.SECONDARY_COLOR);
+        searchField = new JTextField(20);
+        searchField.setBackground(Color.WHITE);
+        searchField.setForeground(Color.BLACK);
+        searchField.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(200, 200, 200), 1),
+            BorderFactory.createEmptyBorder(5, 8, 5, 8)
+        ));
+        searchField.setCaretColor(Color.BLACK);
         
-        updateBtn.setEnabled(false);
-        deleteBtn.setEnabled(false);
+        setupEventHandlers();
+    }
+    
+    private JButton createStyledButton(String text) {
+        JButton button = new JButton(text);
+        button.setBackground(Color.WHITE);
+        button.setForeground(Color.BLACK);
+        button.setFocusPainted(false);
+        button.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(200, 200, 200), 1),
+            BorderFactory.createEmptyBorder(8, 12, 8, 12)
+        ));
+        button.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        button.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                button.setBackground(new Color(240, 240, 240));
+                button.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(180, 180, 180), 1),
+                    BorderFactory.createEmptyBorder(8, 12, 8, 12)
+                ));
+            }
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                button.setBackground(Color.WHITE);
+                button.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(200, 200, 200), 1),
+                    BorderFactory.createEmptyBorder(8, 12, 8, 12)
+                ));
+            }
+        });
+        
+        return button;
     }
     
     private void setupLayout() {
-        setLayout(new BorderLayout(15, 15));
+        setLayout(new BorderLayout(10, 10));
         
         // Title
-        JPanel titlePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        titlePanel.setBackground(Constants.BACKGROUND_COLOR);
-        JLabel titleLabel = new JLabel("Patient Registration");
-        titleLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 26));
-        titlePanel.add(titleLabel);
+        JLabel titleLabel = new JLabel("Patient Management");
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        titleLabel.setForeground(Color.BLACK);
+        add(titleLabel, BorderLayout.NORTH);
         
-        // Form Panel
-        JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBackground(Color.WHITE);
-        formPanel.setBorder(BorderFactory.createTitledBorder("Patient Information"));
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(8, 8, 8, 8);
-        gbc.anchor = GridBagConstraints.WEST;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        
-        int row = 0;
-        addFormField(formPanel, gbc, "First Name:*", firstNameField, row++);
-        addFormField(formPanel, gbc, "Last Name:*", lastNameField, row++);
-        addFormField(formPanel, gbc, "Date of Birth:* (YYYY-MM-DD)", dobField, row++);
-        addFormField(formPanel, gbc, "Gender:*", genderCombo, row++);
-        
-        gbc.gridx = 0; gbc.gridy = row;
-        formPanel.add(new JLabel("Medical History:"), gbc);
-        gbc.gridx = 1;
-        formPanel.add(new JScrollPane(medicalHistoryArea), gbc);
-        row++;
-        
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
-        buttonPanel.add(addBtn);
-        buttonPanel.add(updateBtn);
-        buttonPanel.add(deleteBtn);
-        buttonPanel.add(clearBtn);
-        
-        gbc.gridx = 0; gbc.gridy = row;
-        gbc.gridwidth = 2;
-        formPanel.add(buttonPanel, gbc);
-        
-        // Search Panel
+        // Search panel
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        searchPanel.setBackground(Constants.BACKGROUND_COLOR);
-        searchPanel.add(new JLabel("Search:"));
+        searchPanel.setBackground(Color.WHITE);
+        JLabel searchLabel = new JLabel("Search:");
+        searchLabel.setForeground(Color.BLACK);
+        searchLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        searchPanel.add(searchLabel);
         searchPanel.add(searchField);
-        JButton searchBtn = new JButton("Search");
-        searchBtn.addActionListener(e -> searchPatients());
-        searchPanel.add(searchBtn);
-        JButton refreshBtn = new JButton("Refresh");
-        refreshBtn.addActionListener(e -> loadPatients());
-        searchPanel.add(refreshBtn);
+        searchPanel.add(searchButton);
+        searchPanel.add(clearButton);
         
-        // Table Panel
-        JScrollPane scrollPane = new JScrollPane(patientTable);
-        scrollPane.setBorder(BorderFactory.createTitledBorder("Patient List"));
+        // Button panel
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        buttonPanel.setBackground(Color.WHITE);
+        buttonPanel.add(addButton);
+        buttonPanel.add(editButton);
+        buttonPanel.add(deleteButton);
         
-        // Main layout
         JPanel topPanel = new JPanel(new BorderLayout());
-        topPanel.setBackground(Constants.BACKGROUND_COLOR);
-        topPanel.add(titlePanel, BorderLayout.NORTH);
-        topPanel.add(formPanel, BorderLayout.CENTER);
+        topPanel.setBackground(Color.WHITE);
+        topPanel.add(searchPanel, BorderLayout.NORTH);
+        topPanel.add(buttonPanel, BorderLayout.SOUTH);
+        topPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
         
         add(topPanel, BorderLayout.NORTH);
-        add(searchPanel, BorderLayout.CENTER);
-        add(scrollPane, BorderLayout.SOUTH);
-    }
-    
-    private void addFormField(JPanel panel, GridBagConstraints gbc, String label, JComponent field, int row) {
-        gbc.gridx = 0; gbc.gridy = row;
-        panel.add(new JLabel(label), gbc);
-        gbc.gridx = 1;
-        panel.add(field, gbc);
+        
+        // Table
+        JScrollPane scrollPane = new JScrollPane(patientsTable);
+        scrollPane.setBorder(BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(new Color(200, 200, 200), 1),
+            "Patients List",
+            0, 0,
+            new Font("Segoe UI", Font.BOLD, 12),
+            Color.BLACK
+        ));
+        scrollPane.getViewport().setBackground(Color.WHITE);
+        add(scrollPane, BorderLayout.CENTER);
     }
     
     private void setupEventHandlers() {
-        addBtn.addActionListener(e -> registerPatient());
-        updateBtn.addActionListener(e -> updatePatient());
-        deleteBtn.addActionListener(e -> deletePatient());
-        clearBtn.addActionListener(e -> clearFields());
+        addButton.addActionListener(e -> showAddPatientDialog());
+        editButton.addActionListener(e -> editSelectedPatient());
+        deleteButton.addActionListener(e -> deleteSelectedPatient());
+        searchButton.addActionListener(e -> searchPatients());
+        clearButton.addActionListener(e -> {
+            searchField.setText("");
+            loadPatients();
+        });
         
-        patientTable.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                selectPatient();
+        // Real-time search
+        searchField.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyReleased(KeyEvent e) {
+                if (searchField.getText().trim().isEmpty()) {
+                    loadPatients();
+                } else {
+                    searchPatients();
+                }
             }
         });
     }
     
-    private void registerPatient() {
-        if (!validateForm()) return;
-        
-        try {
-            Patient patient = new Patient();
-            patient.setFirstName(firstNameField.getText().trim());
-            patient.setLastName(lastNameField.getText().trim());
-            patient.setDateOfBirth(LocalDate.parse(dobField.getText().trim()));
-            patient.setGender((String) genderCombo.getSelectedItem());
-            patient.setMedicalHistory(medicalHistoryArea.getText().trim());
-            patient.setRegisteredAt(LocalDateTime.now());
-            
-            Patient created = patientDAO.createPatient(patient);
-            if (created != null) {
-                JOptionPane.showMessageDialog(this,
-                    "Patient registered successfully!\nPatient ID: " + created.getPatientId(),
-                    "Success", JOptionPane.INFORMATION_MESSAGE);
-                loadPatients();
-                clearFields();
+    private void loadPatients() {
+        SwingWorker<List<Patient>, Void> worker = new SwingWorker<>() {
+            @Override
+            protected List<Patient> doInBackground() throws Exception {
+                return patientDAO.getAllPatients();
             }
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this,
-                "Error: " + e.getMessage(),
-                "Error", JOptionPane.ERROR_MESSAGE);
+            
+            @Override
+            protected void done() {
+                try {
+                    List<Patient> patients = get();
+                    tableModel.setRowCount(0);
+                    
+                    DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+                    DateTimeFormatter datetimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+                    
+                    for (Patient patient : patients) {
+                        tableModel.addRow(new Object[]{
+                            patient.getPatientId(),
+                            patient.getFirstName(),
+                            patient.getLastName(),
+                            patient.getDateOfBirth() != null ? patient.getDateOfBirth().format(dateFormatter) : "",
+                            patient.getAge(),
+                            patient.getGender(),
+                            patient.getMedicalHistory() != null ? 
+                                (patient.getMedicalHistory().length() > 50 ? 
+                                 patient.getMedicalHistory().substring(0, 47) + "..." : 
+                                 patient.getMedicalHistory()) : "",
+                            patient.getRegisteredAt() != null ? patient.getRegisteredAt().format(datetimeFormatter) : ""
+                        });
+                    }
+                } catch (Exception e) {
+                    showError("Error loading patients: " + e.getMessage());
+                }
+            }
+        };
+        worker.execute();
+    }
+    
+    private void showAddPatientDialog() {
+        PatientFormDialog dialog = new PatientFormDialog((JFrame) SwingUtilities.getWindowAncestor(this), "Add New Patient", null);
+        dialog.setVisible(true);
+        
+        if (dialog.isSaved()) {
+            loadPatients();
         }
     }
     
-    private void updatePatient() {
-        if (selectedPatient == null || !validateForm()) return;
-        
-        try {
-            selectedPatient.setFirstName(firstNameField.getText().trim());
-            selectedPatient.setLastName(lastNameField.getText().trim());
-            selectedPatient.setDateOfBirth(LocalDate.parse(dobField.getText().trim()));
-            selectedPatient.setGender((String) genderCombo.getSelectedItem());
-            selectedPatient.setMedicalHistory(medicalHistoryArea.getText().trim());
-            
-            if (patientDAO.updatePatient(selectedPatient)) {
-                JOptionPane.showMessageDialog(this, "Patient updated successfully!");
-                loadPatients();
-                clearFields();
-            }
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
+    private void editSelectedPatient() {
+        int selectedRow = patientsTable.getSelectedRow();
+        if (selectedRow == -1) {
+            showWarning("Please select a patient to edit");
+            return;
         }
+        
+        int patientId = (Integer) tableModel.getValueAt(selectedRow, 0);
+        
+        SwingWorker<Patient, Void> worker = new SwingWorker<>() {
+            @Override
+            protected Patient doInBackground() throws Exception {
+                return patientDAO.getPatientById(patientId);
+            }
+            
+            @Override
+            protected void done() {
+                try {
+                    Patient patient = get();
+                    if (patient != null) {
+                        PatientFormDialog dialog = new PatientFormDialog((JFrame) SwingUtilities.getWindowAncestor(PatientRegistrationPanel.this), 
+                                "Edit Patient", patient);
+                        dialog.setVisible(true);
+                        
+                        if (dialog.isSaved()) {
+                            loadPatients();
+                        }
+                    }
+                } catch (Exception e) {
+                    showError("Error loading patient data: " + e.getMessage());
+                }
+            }
+        };
+        worker.execute();
     }
     
-    private void deletePatient() {
-        if (selectedPatient == null) return;
+    private void deleteSelectedPatient() {
+        int selectedRow = patientsTable.getSelectedRow();
+        if (selectedRow == -1) {
+            showWarning("Please select a patient to delete");
+            return;
+        }
         
-        int confirm = JOptionPane.showConfirmDialog(this,
-            "Delete patient: " + selectedPatient.getFirstName() + "?",
-            "Confirm Delete",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.WARNING_MESSAGE);
+        int patientId = (Integer) tableModel.getValueAt(selectedRow, 0);
+        String patientName = (String) tableModel.getValueAt(selectedRow, 1) + " " + (String) tableModel.getValueAt(selectedRow, 2);
+        
+        int confirm = JOptionPane.showConfirmDialog(this, 
+            "Are you sure you want to delete patient: " + patientName + "?\nThis action cannot be undone.", 
+            "Confirm Delete", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         
         if (confirm == JOptionPane.YES_OPTION) {
-            try {
-                if (patientDAO.deletePatient(selectedPatient.getPatientId())) {
-                    JOptionPane.showMessageDialog(this, "Patient deleted successfully!");
-                    loadPatients();
-                    clearFields();
-                }
-            } catch (Exception e) {
-                JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
-            }
+            deletePatient(patientId);
         }
+    }
+    
+    private void deletePatient(int patientId) {
+        SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
+            @Override
+            protected Boolean doInBackground() throws Exception {
+                return patientDAO.deletePatient(patientId);
+            }
+            
+            @Override
+            protected void done() {
+                try {
+                    boolean success = get();
+                    if (success) {
+                        showSuccess("Patient deleted successfully!");
+                        loadPatients();
+                    } else {
+                        showError("Failed to delete patient");
+                    }
+                } catch (Exception e) {
+                    showError("Error deleting patient: " + e.getMessage());
+                }
+            }
+        };
+        worker.execute();
     }
     
     private void searchPatients() {
@@ -253,101 +310,63 @@ class PatientRegistrationPanel extends JPanel {
             return;
         }
         
-        try {
-            List<Patient> patients = patientDAO.searchPatients(searchTerm);
-            displayPatients(patients);
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
-        }
-    }
-    
-    private void loadPatients() {
-        try {
-            List<Patient> patients = patientDAO.getAllPatients();
-            displayPatients(patients);
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error loading patients: " + e.getMessage());
-        }
-    }
-    
-    private void displayPatients(List<Patient> patients) {
-        tableModel.setRowCount(0);
-        for (Patient patient : patients) {
-            Object[] row = {
-                patient.getPatientId(),
-                patient.getFirstName(),
-                calculateAge(patient.getDateOfBirth()),
-                patient.getGender(),
-                patient.getRegisteredAt().toLocalDate()
-            };
-            tableModel.addRow(row);
-        }
-    }
-    
-    private void selectPatient() {
-        int selectedRow = patientTable.getSelectedRow();
-        if (selectedRow >= 0) {
-            try {
-                int patientId = (Integer) tableModel.getValueAt(selectedRow, 0);
-                selectedPatient = patientDAO.getPatientById(patientId);
-                
-                firstNameField.setText(selectedPatient.getFirstName());
-                lastNameField.setText(selectedPatient.getLastName());
-                dobField.setText(selectedPatient.getDateOfBirth().toString());
-                genderCombo.setSelectedItem(selectedPatient.getGender());
-                medicalHistoryArea.setText(selectedPatient.getMedicalHistory());
-                
-                addBtn.setEnabled(false);
-                updateBtn.setEnabled(true);
-                deleteBtn.setEnabled(true);
-            } catch (Exception e) {
-                JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
+        SwingWorker<List<Patient>, Void> worker = new SwingWorker<>() {
+            @Override
+            protected List<Patient> doInBackground() throws Exception {
+                return patientDAO.searchPatients(searchTerm);
             }
-        }
+            
+            @Override
+            protected void done() {
+                try {
+                    List<Patient> patients = get();
+                    tableModel.setRowCount(0);
+                    
+                    DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+                    DateTimeFormatter datetimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+                    
+                    for (Patient patient : patients) {
+                        tableModel.addRow(new Object[]{
+                            patient.getPatientId(),
+                            patient.getFirstName(),
+                            patient.getLastName(),
+                            patient.getDateOfBirth() != null ? patient.getDateOfBirth().format(dateFormatter) : "",
+                            patient.getAge(),
+                            patient.getGender(),
+                            patient.getMedicalHistory() != null ? 
+                                (patient.getMedicalHistory().length() > 50 ? 
+                                 patient.getMedicalHistory().substring(0, 47) + "..." : 
+                                 patient.getMedicalHistory()) : "",
+                            patient.getRegisteredAt() != null ? patient.getRegisteredAt().format(datetimeFormatter) : ""
+                        });
+                    }
+                    
+                    if (patients.isEmpty()) {
+                        showInfo("No patients found matching: " + searchTerm);
+                    }
+                } catch (Exception e) {
+                    showError("Error searching patients: " + e.getMessage());
+                }
+            }
+        };
+        worker.execute();
     }
     
-    private void clearFields() {
-        firstNameField.setText("");
-        lastNameField.setText("");
-        dobField.setText("");
-        genderCombo.setSelectedIndex(0);
-        medicalHistoryArea.setText("");
-        
-        selectedPatient = null;
-        addBtn.setEnabled(true);
-        updateBtn.setEnabled(false);
-        deleteBtn.setEnabled(false);
-        
-        patientTable.clearSelection();
+    // Utility methods for showing messages
+    private void showError(String message) {
+        JOptionPane.showMessageDialog(this, message, "Error", JOptionPane.ERROR_MESSAGE);
     }
     
-    private boolean validateForm() {
-        if (firstNameField.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "First name is required!");
-            return false;
-        }
-        if (lastNameField.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Last name is required!");
-            return false;
-        }
-        try {
-            LocalDate.parse(dobField.getText().trim());
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Invalid date format! Use YYYY-MM-DD");
-            return false;
-        }
-        return true;
+    private void showWarning(String message) {
+        JOptionPane.showMessageDialog(this, message, "Warning", JOptionPane.WARNING_MESSAGE);
     }
     
-    private int calculateAge(LocalDate dob) {
-        return dob != null ? Period.between(dob, LocalDate.now()).getYears() : 0;
+    private void showInfo(String message) {
+        JOptionPane.showMessageDialog(this, message, "Information", JOptionPane.INFORMATION_MESSAGE);
     }
     
-    private void styleButton(JButton btn, Color color) {
-        btn.setBackground(color);
-        btn.setForeground(Color.WHITE);
-        btn.setFocusPainted(false);
-        btn.setPreferredSize(new Dimension(140, 38));
+    private void showSuccess(String message) {
+        JOptionPane.showMessageDialog(this, message, "Success", JOptionPane.INFORMATION_MESSAGE);
     }
     
     public void refreshData() {

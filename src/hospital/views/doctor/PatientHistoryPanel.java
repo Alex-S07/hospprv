@@ -29,7 +29,7 @@ public class PatientHistoryPanel extends JPanel {
         searchPanel.add(searchField);
         JButton searchBtn = new JButton("Search");
         searchBtn.setBackground(Constants.PRIMARY_COLOR);
-        searchBtn.setForeground(Color.WHITE);
+        searchBtn.setForeground(Color.BLACK);
         searchPanel.add(searchBtn);
         
         JTextArea infoArea = new JTextArea(20, 60);

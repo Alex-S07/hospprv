@@ -27,11 +27,11 @@ public class DashboardDAO {
             
             // Total Revenue
             stats.put("totalRevenue", getDecimal(conn, 
-                "SELECT COALESCE(SUM(paid_amount), 0) FROM bills"));
+                "SELECT COALESCE(SUM(total_amount), 0) FROM bills"));
             
             // Pending Bills
             stats.put("pendingBills", getCount(conn, 
-                "SELECT COUNT(*) FROM bills WHERE payment_status != 'PAID'"));
+                "SELECT COUNT(*) FROM bills WHERE status != 'PAID'"));
         }
         
         return stats;

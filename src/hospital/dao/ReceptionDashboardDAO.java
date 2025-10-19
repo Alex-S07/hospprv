@@ -18,7 +18,7 @@ public class ReceptionDashboardDAO {
             stats.put("todayRegistrations", getCount(conn, 
                 "SELECT COUNT(*) FROM patients WHERE DATE(registered_at) = CURDATE()"));
             stats.put("pendingBills", getCount(conn, 
-                "SELECT COUNT(*) FROM bills WHERE payment_status != 'PAID'"));
+                "SELECT COUNT(*) FROM bills WHERE status != 'PAID'"));
         }
         
         return stats;

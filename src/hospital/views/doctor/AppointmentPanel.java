@@ -27,6 +27,9 @@ public class AppointmentPanel extends JPanel {
     }
     
     private void initializeComponents() {
+          UIManager.put("Button.foreground", Color.BLACK);
+        UIManager.put("OptionPane.buttonForeground", Color.BLACK);
+       UIManager.put("Button.disabledText", Color.DARK_GRAY);
         setBackground(Constants.BACKGROUND_COLOR);
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         

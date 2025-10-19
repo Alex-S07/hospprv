@@ -1,15 +1,13 @@
 package hospital.views.receptionist;
 
-
 import hospital.dao.ReceptionDashboardDAO;
 import hospital.models.User;
-import hospital.utils.Constants;
 import javax.swing.*;
 import java.awt.*;
 import java.sql.SQLException;
 import java.util.Map;
 
-class ReceptionDashboardPanel extends JPanel {
+public class ReceptionDashboardPanel extends JPanel {
     private User currentUser;
     private ReceptionDashboardDAO dashboardDAO;
     private JLabel totalPatientsLabel;
@@ -25,13 +23,21 @@ class ReceptionDashboardPanel extends JPanel {
     }
     
     private void initializeComponents() {
-        setBackground(Constants.BACKGROUND_COLOR);
+        setBackground(Color.WHITE);
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         
-        totalPatientsLabel = new JLabel("0");
-        todayAppointmentsLabel = new JLabel("0");
-        todayRegistrationsLabel = new JLabel("0");
-        pendingBillsLabel = new JLabel("0");
+        totalPatientsLabel = createStatLabel("0");
+        todayAppointmentsLabel = createStatLabel("0");
+        todayRegistrationsLabel = createStatLabel("0");
+        pendingBillsLabel = createStatLabel("0");
+    }
+    
+    private JLabel createStatLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setForeground(Color.WHITE);
+        label.setFont(new Font("Segoe UI", Font.BOLD, 36));
+        label.setHorizontalAlignment(SwingConstants.CENTER);
+        return label;
     }
     
     private void setupLayout() {
@@ -39,7 +45,8 @@ class ReceptionDashboardPanel extends JPanel {
         GridBagConstraints gbc = new GridBagConstraints();
         
         JLabel titleLabel = new JLabel("Reception Dashboard");
-        titleLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 26));
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        titleLabel.setForeground(Color.WHITE); // Changed to white
         gbc.gridx = 0; gbc.gridy = 0;
         gbc.gridwidth = 2;
         gbc.insets = new Insets(0, 0, 40, 0);
@@ -66,18 +73,18 @@ class ReceptionDashboardPanel extends JPanel {
     
     private JPanel createStatsCard(String title, JLabel valueLabel, Color color) {
         JPanel card = new JPanel(new BorderLayout(10, 10));
-        card.setBackground(color);
+        card.setBackground(Color.WHITE); // Changed to white
         card.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(color.darker(), 2),
+            BorderFactory.createLineBorder(color, 2),
             BorderFactory.createEmptyBorder(25, 25, 25, 25)
         ));
         
         JLabel titleLabel = new JLabel(title);
-        titleLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 15));
-        titleLabel.setForeground(Color.WHITE);
+        titleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        titleLabel.setForeground(Color.BLACK); // Changed to BLACK
         
-        valueLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 36));
-        valueLabel.setForeground(Color.WHITE);
+        valueLabel.setFont(new Font("Segoe UI", Font.BOLD, 36));
+        valueLabel.setForeground(Color.BLACK); // Changed to BLACK
         valueLabel.setHorizontalAlignment(SwingConstants.CENTER);
         
         card.add(titleLabel, BorderLayout.NORTH);
@@ -102,7 +109,8 @@ class ReceptionDashboardPanel extends JPanel {
                     todayRegistrationsLabel.setText(String.valueOf(stats.get("todayRegistrations")));
                     pendingBillsLabel.setText(String.valueOf(stats.get("pendingBills")));
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(ReceptionDashboardPanel.this, 
+                        "Error loading dashboard data: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
         };

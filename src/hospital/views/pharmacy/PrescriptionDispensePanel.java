@@ -102,7 +102,7 @@ class PrescriptionDispensePanel extends JPanel {
         billPanel.setBorder(new LineBorder(new Color(255, 193, 7), 2));
         JLabel billTitleLabel = new JLabel("Total Bill: ");
         billTitleLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 16));
-        totalBillLabel = new JLabel("$0.00");
+        totalBillLabel = new JLabel("₹0.00");
         totalBillLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 20));
         totalBillLabel.setForeground(new Color(230, 126, 34));
         billPanel.add(billTitleLabel);
@@ -188,7 +188,7 @@ class PrescriptionDispensePanel extends JPanel {
         int selectedRow = prescriptionTable.getSelectedRow();
         if (selectedRow < 0) {
             detailsArea.setText("Select a prescription to view details...");
-            totalBillLabel.setText("$0.00");
+            totalBillLabel.setText("₹0.00");
             return;
         }
 
@@ -201,7 +201,7 @@ class PrescriptionDispensePanel extends JPanel {
                 displayPrescriptionDetails(prescriptions);
             } else {
                 detailsArea.setText("No prescription details found.");
-                totalBillLabel.setText("$0.00");
+                totalBillLabel.setText("₹0.00");
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -247,8 +247,8 @@ class PrescriptionDispensePanel extends JPanel {
                     totalBill += itemTotal;
 
                     details.append("   Quantity Required: ").append(quantity).append(" units\n");
-                    details.append("   Unit Price: $").append(String.format("%.2f", price)).append("\n");
-                    details.append("   Subtotal: $").append(String.format("%.2f", itemTotal)).append("\n");
+                    details.append("   Unit Price: ₹").append(String.format("%.2f", price)).append("\n");
+                    details.append("   Subtotal: ₹").append(String.format("%.2f", itemTotal)).append("\n");
 
                     if (medicine.getStockQuantity() < quantity) {
                         details.append("   ⚠ WARNING: Insufficient stock! ");
@@ -264,7 +264,6 @@ class PrescriptionDispensePanel extends JPanel {
                 details.append("   ⚠ Error fetching price\n");
             }
 
-            details.append("   Dosage: ").append(p.getDosage()).append("\n");
             details.append("   Frequency: ").append(p.getFrequency()).append("\n");
             details.append("   Duration: ").append(p.getDuration()).append("\n");
 
@@ -275,12 +274,12 @@ class PrescriptionDispensePanel extends JPanel {
         }
 
         details.append("══════════════════════════════════════════════════════════════════════════════════════════════\n");
-        details.append(String.format("%-30s $%.2f\n", "             TOTAL BILL:", totalBill));
+        details.append(String.format("%-30s ₹%.2f\n", "             TOTAL BILL:", totalBill));
         details.append("══════════════════════════════════════════════════════════════════════════════════════════════\n");
 
         detailsArea.setText(details.toString());
         detailsArea.setCaretPosition(0);
-        totalBillLabel.setText("$" + String.format("%.2f", totalBill));
+        totalBillLabel.setText("₹" + String.format("%.2f", totalBill));
     }
 
     private void dispensePrescription() {
@@ -323,7 +322,7 @@ class PrescriptionDispensePanel extends JPanel {
         }
 
         String message = String.format(
-                "Dispense prescription and update stock?\n\nTotal Bill: $%.2f", totalBill);
+                "Dispense prescription and update stock?\n\nTotal Bill: ₹%.2f", totalBill);
 
         int confirm = JOptionPane.showConfirmDialog(this, message, "Confirm Dispense",
                 JOptionPane.YES_NO_OPTION);
@@ -348,7 +347,7 @@ class PrescriptionDispensePanel extends JPanel {
                 String bill = generateBillText();
 
                 JOptionPane.showMessageDialog(this,
-                        String.format("✓ Prescription dispensed successfully!\n\nTotal: $%.2f\nStock updated.",
+                        String.format("✓ Prescription dispensed successfully!\n\nTotal: ₹%.2f\nStock updated.",
                                 totalBill),
                         "Success",
                         JOptionPane.INFORMATION_MESSAGE);
@@ -412,11 +411,11 @@ class PrescriptionDispensePanel extends JPanel {
                     if (medName.length() > 23)
                         medName = medName.substring(0, 23);
 
-                    bill.append(String.format("%-25s %5d $%9.2f $%9.2f\n",
+                    bill.append(String.format("%-25s %5d ₹%9.2f ₹%9.2f\n",
                             medName, quantity, price, itemTotal));
 
-                    bill.append(String.format("  Dosage: %s | Frequency: %s | Duration: %s\n",
-                            p.getDosage(), p.getFrequency(), p.getDuration()));
+                    bill.append(String.format("  Frequency: %s | Duration: %s\n",
+                            p.getFrequency(), p.getDuration()));
 
                     if (p.getInstructions() != null && !p.getInstructions().isEmpty()) {
                         bill.append("  Instructions: ").append(p.getInstructions()).append("\n");
@@ -429,7 +428,7 @@ class PrescriptionDispensePanel extends JPanel {
         }
 
         bill.append("──────────────────────────────────────────────────────────────────────────────────────────────\n");
-        bill.append(String.format("%-41s $%9.2f\n", "GRAND TOTAL:", grandTotal));
+        bill.append(String.format("%-41s ₹%9.2f\n", "GRAND TOTAL:", grandTotal));
         bill.append("══════════════════════════════════════════════════════════════════════════════════════════════\n\n");
 
         bill.append("IMPORTANT INSTRUCTIONS:\n");

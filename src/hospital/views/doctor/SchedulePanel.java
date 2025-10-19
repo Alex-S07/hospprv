@@ -55,15 +55,15 @@ public class SchedulePanel extends JPanel {
         refreshBtn = new JButton("Refresh");
         
         markDutyBtn.setBackground(new Color(46, 125, 50));
-        markDutyBtn.setForeground(Color.WHITE);
+        markDutyBtn.setForeground(Color.BLACK);
         markDutyBtn.setFocusPainted(false);
         
         markLeaveBtn.setBackground(new Color(198, 40, 40));
-        markLeaveBtn.setForeground(Color.WHITE);
+        markLeaveBtn.setForeground(Color.BLACK);
         markLeaveBtn.setFocusPainted(false);
         
         refreshBtn.setBackground(Constants.PRIMARY_COLOR);
-        refreshBtn.setForeground(Color.WHITE);
+        refreshBtn.setForeground(Color.BLACK);
         refreshBtn.setFocusPainted(false);
         
         statusLabel = new JLabel("Select dates to mark as DUTY or LEAVE");

@@ -8,11 +8,10 @@ import java.util.List;
 
 public class DoctorDAO extends BaseDAO {
 
-    // Get all distinct departments
-    public List<String> getDepartments() {
+       public List<String> getDepartments() {
         List<String> departments = new ArrayList<>();
-        String sql = "SELECT DISTINCT specialization FROM users " +
-                "WHERE role = 'DOCTOR' AND is_active = '1' AND profile_completed = TRUE " +
+        String sql = "SELECT DISTINCT specialization FROM doctors " +
+                "WHERE is_available = true " +
                 "ORDER BY specialization";
 
         try (Connection conn = getConnection();
@@ -28,20 +27,18 @@ public class DoctorDAO extends BaseDAO {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-
         return departments;
     }
 
-    // Get doctors by department (filtered by date availability)
-    public List<String> getDoctorsByDepartment(String department, LocalDate date) {
+     public List<String> getDoctorsByDepartment(String department, LocalDate date) {
         List<String> doctors = new ArrayList<>();
-        String sql = "SELECT u.user_id, u.username, u.specialization, u.consultation_fee " +
-                "FROM users u " +
-                "LEFT JOIN doctor_schedules ds ON u.user_id = ds.doctor_id AND ds.schedule_date = ? " +
-                "WHERE u.role = 'DOCTOR' AND u.is_active = '1' " +
-                "AND u.specialization = ? AND u.profile_completed = TRUE " +
+        String sql = "SELECT d.user_id, d.full_name, d.specialization, d.consultation_fee " +
+                "FROM doctors d " +
+                "LEFT JOIN doctor_schedules ds ON d.doctor_id = ds.doctor_id AND ds.schedule_date = ? " +
+                "WHERE d.is_available = true " +
+                "AND d.specialization = ? " +
                 "AND (ds.status IS NULL OR ds.status = 'DUTY') " +
-                "ORDER BY u.username";
+                "ORDER BY d.full_name";
 
         try (Connection conn = getConnection();
                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -52,8 +49,8 @@ public class DoctorDAO extends BaseDAO {
             ResultSet rs = pstmt.executeQuery();
 
             while (rs.next()) {
-                int userId = rs.getInt("user_id");
-                String fullName = rs.getString("username");
+                int userId = rs.getInt("user_id");  // Use user_id instead of doctor_id
+                String fullName = rs.getString("full_name");
                 String spec = rs.getString("specialization");
                 double fee = rs.getDouble("consultation_fee");
                 doctors.add(userId + " - " + fullName + " (" + spec + ") - ₹" + fee);
@@ -61,14 +58,14 @@ public class DoctorDAO extends BaseDAO {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-
         return doctors;
     }
 
-    public Doctor getDoctorByUserId(int userId) throws SQLException {
-        String sql = "SELECT user_id, username, email, role, is_active, specialization, " +
-                "experience_years, phone, consultation_fee, profile_completed " +
-                "FROM users WHERE user_id = ? AND role = 'DOCTOR'";
+    // Get doctor by ID - FIXED
+      public Doctor getDoctorByUserId(int userId) throws SQLException {
+        String sql = "SELECT d.doctor_id, d.user_id, d.full_name, d.specialization, " +
+                "d.experience_years, d.phone, d.email, d.consultation_fee, d.is_available, d.created_at " +
+                "FROM doctors d WHERE d.user_id = ?";
 
         try (Connection conn = getConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -78,26 +75,28 @@ public class DoctorDAO extends BaseDAO {
 
             if (rs.next()) {
                 Doctor doctor = new Doctor();
-                doctor.setDoctorId(rs.getInt("user_id"));
-                doctor.setUsername(rs.getString("username"));
-                doctor.setEmail(rs.getString("email"));
-                doctor.setRole(rs.getString("role"));
+                doctor.setDoctorId(rs.getInt("doctor_id"));
+                doctor.setUserId(rs.getInt("user_id"));
+                doctor.setUsername(rs.getString("full_name"));
                 doctor.setSpecialization(rs.getString("specialization"));
                 doctor.setExperienceYears(rs.getInt("experience_years"));
                 doctor.setPhone(rs.getString("phone"));
+                doctor.setEmail(rs.getString("email"));
                 doctor.setConsultationFee(rs.getDouble("consultation_fee"));
-                doctor.setProfileCompleted(rs.getBoolean("profile_completed"));
-                doctor.setAvailable("1".equals(rs.getString("is_active")));
+                doctor.setAvailable(rs.getBoolean("is_available"));
+                doctor.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
                 return doctor;
             }
         }
         return null;
     }
 
-    // Get all doctors from USERS table only
+
+    // Get all doctors - FIXED
     public List<Doctor> getAllDoctors() throws SQLException {
         List<Doctor> doctors = new ArrayList<>();
-        String sql = "SELECT user_id, username, email, role, is_active FROM users WHERE role = 'DOCTOR'";
+        String sql = "SELECT doctor_id, user_id, full_name, specialization, email, phone, " +
+                "consultation_fee, is_available, created_at FROM doctors";
 
         try (Connection conn = getConnection();
                 Statement stmt = conn.createStatement();
@@ -105,46 +104,91 @@ public class DoctorDAO extends BaseDAO {
 
             while (rs.next()) {
                 Doctor doctor = new Doctor();
-                doctor.setDoctorId(rs.getInt("user_id"));
-                doctor.setUsername(rs.getString("username"));
+                doctor.setDoctorId(rs.getInt("doctor_id"));
+                doctor.setUserId(rs.getInt("user_id"));
+                doctor.setUsername(rs.getString("full_name"));
+                doctor.setSpecialization(rs.getString("specialization"));
                 doctor.setEmail(rs.getString("email"));
-                doctor.setRole(rs.getString("role"));
-                doctor.setAvailable("1".equals(rs.getString("is_active")));
+                doctor.setPhone(rs.getString("phone"));
+                doctor.setConsultationFee(rs.getDouble("consultation_fee"));
+                doctor.setAvailable(rs.getBoolean("is_available"));
+                doctor.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
                 doctors.add(doctor);
             }
         }
         return doctors;
     }
 
-    // Get doctor by ID from USERS table
-    public Doctor getDoctorById(int doctorId) throws SQLException {
-        String sql = "SELECT user_id, username, email, role, is_active, specialization, " +
-                "experience_years, phone, consultation_fee, profile_completed " +
-                "FROM users WHERE user_id = ? AND role = 'DOCTOR'";
-
+    // Get consultation fee for a doctor - NEW METHOD
+    public double getConsultationFeeByUserId(int userId) throws SQLException {
+        String sql = "SELECT consultation_fee FROM doctors WHERE user_id = ?";
+        
         try (Connection conn = getConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
+                
+            stmt.setInt(1, userId);
+            ResultSet rs = stmt.executeQuery();
+            
+            if (rs.next()) {
+                return rs.getDouble("consultation_fee");
+            }
+        }
+        return 0.0;
+    }
+
+     public Doctor getDoctorById(int doctorId) throws SQLException {
+        String sql = "SELECT doctor_id, user_id, full_name, specialization, " +
+                "experience_years, phone, email, consultation_fee, is_available, created_at " +
+                "FROM doctors WHERE doctor_id = ?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setInt(1, doctorId);
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
                 Doctor doctor = new Doctor();
-                doctor.setDoctorId(rs.getInt("user_id"));
-                doctor.setUsername(rs.getString("username"));
+                doctor.setDoctorId(rs.getInt("doctor_id"));
+                doctor.setUserId(rs.getInt("user_id"));
+                
+                // Handle full_name - you might need to split into first/last name
+                String fullName = rs.getString("full_name");
+                doctor.setUsername(fullName); // or setFullName() if you have that method
+                
+                // If you need separate first/last names, split the full_name
+                if (fullName != null && fullName.contains(" ")) {
+                    String[] names = fullName.split(" ", 2);
+                    doctor.setFirstName(names[0]);
+                    if (names.length > 1) {
+                        doctor.setLastName(names[1]);
+                    } else {
+                        doctor.setLastName("");
+                    }
+                } else {
+                    doctor.setFirstName(fullName != null ? fullName : "");
+                    doctor.setLastName("");
+                }
+                
                 doctor.setSpecialization(rs.getString("specialization"));
                 doctor.setExperienceYears(rs.getInt("experience_years"));
                 doctor.setPhone(rs.getString("phone"));
                 doctor.setEmail(rs.getString("email"));
                 doctor.setConsultationFee(rs.getDouble("consultation_fee"));
-                doctor.setProfileCompleted(rs.getBoolean("profile_completed"));
-                doctor.setAvailable("1".equals(rs.getString("is_active")));
+                doctor.setAvailable(rs.getBoolean("is_available"));
+                
+                Timestamp createdAt = rs.getTimestamp("created_at");
+                if (createdAt != null) {
+                    doctor.setCreatedAt(createdAt.toLocalDateTime());
+                }
+                
                 return doctor;
             }
         }
-
         return null;
     }
+
+
 
     public boolean createDoctor(Doctor doctor) throws SQLException {
         // Check for duplicates first

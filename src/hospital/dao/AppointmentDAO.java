@@ -11,14 +11,14 @@ import java.util.List;
 
 public class AppointmentDAO {
 
-    public int getNextTokenNumber(int doctorId, LocalDate date) throws SQLException {
+     public int getNextTokenNumber(int userId, LocalDate date) throws SQLException {
         String sql = "SELECT COALESCE(MAX(token_number), 0) + 1 FROM appointments " +
                 "WHERE doctor_id = ? AND DATE(appointment_datetime) = ?";
 
         try (Connection conn = DatabaseConfig.getConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setInt(1, doctorId);
+            stmt.setInt(1, userId);  // Use user_id here
             stmt.setDate(2, Date.valueOf(date));
 
             ResultSet rs = stmt.executeQuery();
@@ -29,113 +29,119 @@ public class AppointmentDAO {
         return 1;
     }
 
-    public Appointment createAppointment(Appointment appointment) throws SQLException {
-    // Check if doctor is available on that date
-    DoctorScheduleDAO scheduleDAO = new DoctorScheduleDAO();
-    LocalDate appointmentDate = appointment.getAppointmentDateTime().toLocalDate();
-    
-    if (!scheduleDAO.isDoctorAvailable(appointment.getDoctorId(), appointmentDate)) {
-        DoctorSchedule schedule = scheduleDAO.getScheduleForDate(appointment.getDoctorId(), appointmentDate);
-        String reason = schedule != null && schedule.getReason() != null ? 
-            " (" + schedule.getReason() + ")" : "";
-        throw new SQLException("Doctor is on LEAVE on this date" + reason);
-    }
-    
-    String sql = "INSERT INTO appointments (patient_id, doctor_id, appointment_datetime, " +
-            "token_number, consultation_fee, status, created_by, created_at) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
+       public Appointment createAppointment(Appointment appointment) throws SQLException {
+        // Check if doctor is available on that date
+        DoctorScheduleDAO scheduleDAO = new DoctorScheduleDAO();
+        LocalDate appointmentDate = appointment.getAppointmentDateTime().toLocalDate();
+        
+        // Note: You'll need to update DoctorScheduleDAO to also work with user_id
+        if (!scheduleDAO.isDoctorAvailable(appointment.getDoctorId(), appointmentDate)) {
+            DoctorSchedule schedule = scheduleDAO.getScheduleForDate(appointment.getDoctorId(), appointmentDate);
+            String reason = schedule != null && schedule.getReason() != null ? 
+                " (" + schedule.getReason() + ")" : "";
+            throw new SQLException("Doctor is on LEAVE on this date" + reason);
+        }
+        
+        // Get consultation fee using user_id
+        DoctorDAO doctorDAO = new DoctorDAO();
+        double consultationFee = doctorDAO.getConsultationFeeByUserId(appointment.getDoctorId());
+        appointment.setConsultationFee(consultationFee);
+        
+        // Get next token number using user_id
+        int tokenNumber = getNextTokenNumber(appointment.getDoctorId(), appointmentDate);
+        appointment.setTokenNumber(tokenNumber);
+        
+        String sql = "INSERT INTO appointments (patient_id, doctor_id, appointment_datetime, " +
+                "token_number, consultation_fee, status, created_by, created_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
 
-    try (Connection conn = DatabaseConfig.getConnection();
-            PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection conn = DatabaseConfig.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
-        stmt.setInt(1, appointment.getPatientId());
-        stmt.setInt(2, appointment.getDoctorId());
-        stmt.setTimestamp(3, Timestamp.valueOf(appointment.getAppointmentDateTime()));
-        stmt.setInt(4, appointment.getTokenNumber());
-        stmt.setDouble(5, appointment.getConsultationFee());
-        stmt.setString(6, appointment.getStatus());
-        stmt.setInt(7, appointment.getCreatedBy());
+            stmt.setInt(1, appointment.getPatientId());
+            stmt.setInt(2, appointment.getDoctorId());  // This should be user_id now
+            stmt.setTimestamp(3, Timestamp.valueOf(appointment.getAppointmentDateTime()));
+            stmt.setInt(4, appointment.getTokenNumber());
+            stmt.setDouble(5, appointment.getConsultationFee());
+            stmt.setString(6, appointment.getStatus());
+            stmt.setInt(7, appointment.getCreatedBy());
 
-        int result = stmt.executeUpdate();
-        if (result > 0) {
-            ResultSet rs = stmt.getGeneratedKeys();
-            if (rs.next()) {
-                appointment.setAppointmentId(rs.getInt(1));
+            // System.out.println("DEBUG: Inserting appointment with doctor_id (user_id): " + appointment.getDoctorId());
+            // System.out.println("DEBUG: Consultation fee: " + appointment.getConsultationFee());
+            
+            int result = stmt.executeUpdate();
+            if (result > 0) {
+                ResultSet rs = stmt.getGeneratedKeys();
+                if (rs.next()) {
+                    int appointmentId = rs.getInt(1);
+                    return getAppointmentById(appointmentId);
+                }
             }
-            return appointment;
         }
+        return null;
     }
-    return null;
-}
 
-    public List<Appointment> getTodaysAppointments(int doctorId) throws SQLException {
-    // First check if doctor is on duty today
-    DoctorScheduleDAO scheduleDAO = new DoctorScheduleDAO();
-    if (!scheduleDAO.isDoctorAvailable(doctorId, LocalDate.now())) {
-        // Return empty list if doctor is on leave
-        return new ArrayList<>();
-    }
-    
-    List<Appointment> appointments = new ArrayList<>();
-    String sql = "SELECT a.*, " +
-            "p.first_name AS patient_name, " +
-            "u.username AS doctor_name " +
-            "FROM appointments a " +
-            "JOIN patients p ON a.patient_id = p.patient_id " +
-            "JOIN users u ON a.doctor_id = u.user_id " +
-            "WHERE a.doctor_id = ? AND DATE(a.appointment_datetime) = CURDATE() " +
-            "ORDER BY a.token_number";
-
-    try (Connection conn = DatabaseConfig.getConnection();
-            PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-        stmt.setInt(1, doctorId);
-        ResultSet rs = stmt.executeQuery();
-
-        while (rs.next()) {
-            appointments.add(mapResultSetToAppointment(rs));
-        }
-    }
-    return appointments;
-}
-
-    // Overloaded method for specific doctor
-    // public List<Appointment> getTodaysAppointments(int doctorId) throws SQLException {
-    //     List<Appointment> appointments = new ArrayList<>();
-    //     String sql = "SELECT a.*, " +
-    //             "p.first_name AS patient_name, " +
-    //             "u.username AS doctor_name " +
-    //             "FROM appointments a " +
-    //             "JOIN patients p ON a.patient_id = p.patient_id " +
-    //             "JOIN users u ON a.doctor_id = u.user_id " +
-    //             "WHERE a.doctor_id = ? AND DATE(a.appointment_datetime) = CURDATE() " +
-    //             "ORDER BY a.token_number";
-
-    //     try (Connection conn = DatabaseConfig.getConnection();
-    //             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-    //         stmt.setInt(1, doctorId);
-    //         ResultSet rs = stmt.executeQuery();
-
-    //         while (rs.next()) {
-    //             appointments.add(mapResultSetToAppointment(rs));
-    //         }
-    //     }
-    //     return appointments;
-    // }
-
-    // Get appointments by date range
-    public List<Appointment> getAppointmentsByDateRange(int doctorId, LocalDate startDate, LocalDate endDate)
-            throws SQLException {
+    // Update other methods to join with users table instead of doctors table
+    public List<Appointment> getTodaysAppointments(int userId) throws SQLException {
         List<Appointment> appointments = new ArrayList<>();
-        String sql = "SELECT a.*, " +
+        String sql = "SELECT a.*, COALESCE(a.consultation_fee,0) AS consultation_fee, " +
+                "p.first_name AS patient_name, " +
+                "u.username AS doctor_name " +  // From users table
+                "FROM appointments a " +
+                "JOIN patients p ON a.patient_id = p.patient_id " +
+                "JOIN users u ON a.doctor_id = u.user_id " +  // Join with users
+                "WHERE a.doctor_id = ? AND DATE(a.appointment_datetime) = CURDATE() " +
+                "ORDER BY a.token_number";
+
+        try (Connection conn = DatabaseConfig.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, userId);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                appointments.add(mapResultSetToAppointment(rs));
+            }
+        }
+        return appointments;
+    }
+
+    /**
+     * Get all appointments for today (no doctor filter)
+     */
+    public List<Appointment> getTodaysAppointments() throws SQLException {
+        List<Appointment> appointments = new ArrayList<>();
+        String sql = "SELECT a.*, COALESCE(a.consultation_fee,0) AS consultation_fee, " +
                 "p.first_name AS patient_name, " +
                 "u.username AS doctor_name " +
                 "FROM appointments a " +
                 "JOIN patients p ON a.patient_id = p.patient_id " +
                 "JOIN users u ON a.doctor_id = u.user_id " +
-                "WHERE a.doctor_id = ? AND DATE(a.appointment_datetime) BETWEEN ? AND ? " + // ✅ FIXED: Proper date
-                                                                                            // range
+                "WHERE DATE(a.appointment_datetime) = CURDATE() " +
+                "ORDER BY a.token_number";
+
+        try (Connection conn = DatabaseConfig.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                appointments.add(mapResultSetToAppointment(rs));
+            }
+        }
+        return appointments;
+    }
+
+    // Get appointments by date range
+    public List<Appointment> getAppointmentsByDateRange(int doctorId, LocalDate startDate, LocalDate endDate)
+            throws SQLException {
+        List<Appointment> appointments = new ArrayList<>();
+        String sql = "SELECT a.*, COALESCE(a.consultation_fee,0) AS consultation_fee, " +
+                "p.first_name AS patient_name, " +
+                "u.username AS doctor_name " +
+                "FROM appointments a " +
+                "JOIN patients p ON a.patient_id = p.patient_id " +
+                "JOIN users u ON a.doctor_id = u.user_id " +
+                "WHERE a.doctor_id = ? AND DATE(a.appointment_datetime) BETWEEN ? AND ? " +
                 "ORDER BY a.appointment_datetime, a.token_number";
 
         try (Connection conn = DatabaseConfig.getConnection();
@@ -169,13 +175,13 @@ public class AppointmentDAO {
 
     // Get appointment by ID
     public Appointment getAppointmentById(int appointmentId) throws SQLException {
-        String sql = "SELECT a.*, " +
+        String sql = "SELECT a.*, COALESCE(a.consultation_fee,0) AS consultation_fee, " +
                 "p.first_name AS patient_name, " +
-                "u.username AS doctor_name " + // ✅ FIXED: Changed to users table
+                "u.username AS doctor_name " +
                 "FROM appointments a " +
                 "JOIN patients p ON a.patient_id = p.patient_id " +
-                "JOIN users u ON a.doctor_id = u.user_id " + // ✅ FIXED: Changed to users table
-                "WHERE a.appointment_id = ?"; // ✅ FIXED: Correct WHERE clause
+                "JOIN users u ON a.doctor_id = u.user_id " +
+                "WHERE a.appointment_id = ?";
 
         try (Connection conn = DatabaseConfig.getConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -244,32 +250,36 @@ public class AppointmentDAO {
     /**
      * Get patient's existing appointment for the date
      */
-    public Appointment getPatientAppointmentOnDate(int patientId, LocalDate date) throws SQLException {
-        String sql = "SELECT a.*, " +
-                "CONCAT(p.first_name, ' ', p.last_name) AS patient_name, " +
-                "d.full_name AS doctor_name " +
-                "FROM appointments a " +
-                "JOIN patients p ON a.patient_id = p.patient_id " +
-                "JOIN doctors d ON a.doctor_id = d.doctor_id " +
-                "WHERE a.patient_id = ? " +
-                "AND DATE(a.appointment_datetime) = ? " +
-                "AND a.status NOT IN ('CANCELLED', 'COMPLETED')";
+    /**
+ * Get patient's existing appointment for the date
+ */
+public Appointment getPatientAppointmentOnDate(int patientId, LocalDate date) throws SQLException {
+    String sql = "SELECT a.*, " +
+            "p.first_name AS patient_name, " +
+            "u.username AS doctor_name " +  // Changed from d.full_name to u.username
+            "FROM appointments a " +
+            "JOIN patients p ON a.patient_id = p.patient_id " +
+            "JOIN users u ON a.doctor_id = u.user_id " +  // Changed from doctors d to users u
+            "WHERE a.patient_id = ? " +
+            "AND DATE(a.appointment_datetime) = ? " +
+            "AND a.status NOT IN ('CANCELLED', 'COMPLETED')";
 
-        try (Connection conn = DatabaseConfig.getConnection();
-                PreparedStatement stmt = conn.prepareStatement(sql)) {
+    try (Connection conn = DatabaseConfig.getConnection();
+            PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setInt(1, patientId);
-            stmt.setDate(2, Date.valueOf(date));
+        stmt.setInt(1, patientId);
+        stmt.setDate(2, Date.valueOf(date));
 
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                return mapResultSetToAppointment(rs);
-            }
+        ResultSet rs = stmt.executeQuery();
+        if (rs.next()) {
+            return mapResultSetToAppointment(rs);
         }
-        return null;
     }
+    return null;
+}
 
     private Appointment mapResultSetToAppointment(ResultSet rs) throws SQLException {
+    try {
         Appointment appointment = new Appointment();
         appointment.setAppointmentId(rs.getInt("appointment_id"));
         appointment.setPatientId(rs.getInt("patient_id"));
@@ -280,11 +290,33 @@ public class AppointmentDAO {
             appointment.setAppointmentDateTime(ts.toLocalDateTime());
         }
         appointment.setTokenNumber(rs.getInt("token_number"));
-        appointment.setConsultationFee(rs.getDouble("consultation_fee"));
+
+        // safe read for consultation_fee
+        double fee = 0.0;
+        try {
+            fee = rs.getDouble("consultation_fee");
+            if (rs.wasNull()) fee = 0.0;
+        } catch (SQLException ex) {
+            fee = 0.0;
+        }
+        appointment.setConsultationFee(fee);
+
         appointment.setStatus(rs.getString("status"));
-        appointment.setPatientName(rs.getString("patient_name"));
-        appointment.setDoctorName(rs.getString("doctor_name"));
+        
+        // Debug the names
+        String patientName = rs.getString("patient_name");
+        String doctorName = rs.getString("doctor_name");
+        
+        // System.out.println("DEBUG - Patient Name: " + patientName + ", Doctor Name: " + doctorName);
+        
+        appointment.setPatientName(patientName);
+        appointment.setDoctorName(doctorName);
 
         return appointment;
+    } catch (Exception e) {
+        System.err.println("Error in mapResultSetToAppointment: " + e.getMessage());
+        e.printStackTrace();
+        return null;
     }
+}
 }

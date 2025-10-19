@@ -7,7 +7,6 @@ public class Prescription {
     private int recordId;
     private int medicineId;
     private String medicineName;
-    private String dosage;
     private String frequency;
     private String duration;
     private String instructions;
@@ -16,6 +15,7 @@ public class Prescription {
     private LocalDateTime createdAt;
     private LocalDateTime dispensedAt;
     private int dispensedBy;
+    private double totalCost;
     
     // Additional fields for display
     private String patientName;
@@ -29,7 +29,6 @@ public class Prescription {
                        String frequency, String duration) {
         this.recordId = recordId;
         this.medicineId = medicineId;
-        this.dosage = dosage;
         this.frequency = frequency;
         this.duration = duration;
     }
@@ -66,15 +65,15 @@ public class Prescription {
     public void setMedicineName(String medicineName) {
         this.medicineName = medicineName;
     }
-    
-    public String getDosage() {
-        return dosage;
+
+    public double getTotalCost() {
+        return totalCost; 
     }
-    
-    public void setDosage(String dosage) {
-        this.dosage = dosage;
+
+    public void setTotalCost(double totalCost) {
+        this.totalCost = totalCost; 
     }
-    
+
     public String getFrequency() {
         return frequency;
     }
@@ -106,6 +105,7 @@ public class Prescription {
     public void setQuantity(int quantity) {
         this.quantity = quantity;
     }
+
     
     public String getStatus() {
         return status;
@@ -161,7 +161,6 @@ public class Prescription {
                 "prescriptionId=" + prescriptionId +
                 ", recordId=" + recordId +
                 ", medicineName='" + medicineName + '\'' +
-                ", dosage='" + dosage + '\'' +
                 ", quantity=" + quantity +
                 ", status='" + status + '\'' +
                 '}';

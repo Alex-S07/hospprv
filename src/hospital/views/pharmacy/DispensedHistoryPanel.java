@@ -140,7 +140,7 @@ public class DispensedHistoryPanel extends JPanel {
                     first.getPatientName(),
                     first.getDoctorName(),
                     medicines.toString(),
-                    String.format("$%.2f", total)
+                    String.format("₹%.2f", total)
                 };
                 tableModel.addRow(row);
             }
@@ -197,20 +197,19 @@ public class DispensedHistoryPanel extends JPanel {
                     total += itemTotal;
                     
                     details.append("   Quantity: ").append(quantity).append(" units\n");
-                    details.append("   Unit Price: $").append(String.format("%.2f", price)).append("\n");
-                    details.append("   Subtotal: $").append(String.format("%.2f", itemTotal)).append("\n");
+                    details.append("   Unit Price: ₹").append(String.format("%.2f", price)).append("\n");
+                    details.append("   Subtotal: ₹").append(String.format("%.2f", itemTotal)).append("\n");
                 }
             } catch (SQLException e) {
                 details.append("   Price: N/A\n");
             }
             
-            details.append("   Dosage: ").append(p.getDosage()).append("\n");
             details.append("   Frequency: ").append(p.getFrequency()).append(" times/day\n");
             details.append("   Duration: ").append(p.getDuration()).append(" days\n\n");
         }
 
         details.append("═══════════════════════════════════════════════\n");
-        details.append(String.format("%-30s $%.2f\n", "TOTAL:", total));
+        details.append(String.format("%-30s ₹%.2f\n", "TOTAL:", total));
         details.append("═══════════════════════════════════════════════\n");
 
         detailsArea.setText(details.toString());
