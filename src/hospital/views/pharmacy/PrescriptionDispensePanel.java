@@ -14,6 +14,7 @@ class PrescriptionDispensePanel extends JPanel {
     private User currentUser;
     private PrescriptionDAO prescriptionDAO;
     private InventoryDAO inventoryDAO;
+    private BillDAO billDAO; // Add BillDAO
 
     private JTable prescriptionTable;
     private DefaultTableModel tableModel;
@@ -28,6 +29,7 @@ class PrescriptionDispensePanel extends JPanel {
         this.currentUser = user;
         this.prescriptionDAO = new PrescriptionDAO();
         this.inventoryDAO = new InventoryDAO();
+        this.billDAO = new BillDAO(); // Initialize BillDAO
 
         setLayout(new BorderLayout(10, 10));
         setBorder(new EmptyBorder(15, 15, 15, 15));
@@ -36,6 +38,7 @@ class PrescriptionDispensePanel extends JPanel {
     }
 
     private void initializeComponents() {
+        // ... (same as before, no changes needed in UI)
         // Top panel
         JPanel topPanel = new JPanel(new BorderLayout());
         JLabel titleLabel = new JLabel("Pending Prescriptions");
@@ -329,7 +332,42 @@ class PrescriptionDispensePanel extends JPanel {
 
         if (confirm == JOptionPane.YES_OPTION) {
             try {
-                // Update stock
+                // Get patient ID from medical record
+                int patientId = getPatientIdFromRecord(currentPrescriptions.get(0).getRecordId());
+                int recordId = currentPrescriptions.get(0).getRecordId();
+
+                // 1. Create bill in database
+                Bill bill = new Bill();
+                bill.setPatientId(patientId);
+                bill.setRecordId(recordId);
+                bill.setTotalAmount(totalBill);
+                bill.setStatus("PAID");
+                bill.setPaymentMethod("CASH");
+                bill.setCreatedBy(currentUser.getUserId());
+                
+                Bill savedBill = billDAO.createBill(bill);
+
+                // 2. Create bill items
+                for (Prescription p : currentPrescriptions) {
+                    Medicine medicine = inventoryDAO.getMedicineByName(p.getMedicineName());
+                    if (medicine != null) {
+                        int quantity = p.getQuantity();
+                        double price = medicine.getUnitPrice();
+                        double itemTotal = price * quantity;
+
+                        BillItem billItem = new BillItem();
+                        billItem.setBillId(savedBill.getBillId());
+                        billItem.setItemType("Medicine");
+                        billItem.setItemName(p.getMedicineName());
+                        billItem.setQuantity(quantity);
+                        billItem.setUnitPrice(price);
+                        billItem.setTotalPrice(itemTotal);
+                        
+                        billDAO.createBillItem(billItem);
+                    }
+                }
+
+                // 3. Update stock
                 for (Prescription p : currentPrescriptions) {
                     Medicine medicine = inventoryDAO.getMedicineByName(p.getMedicineName());
                     if (medicine != null) {
@@ -339,15 +377,14 @@ class PrescriptionDispensePanel extends JPanel {
                     }
                 }
 
-                // Mark as dispensed
-                int recordId = currentPrescriptions.get(0).getRecordId();
+                // 4. Mark prescription as dispensed
                 prescriptionDAO.markAsDispensed(recordId, currentUser.getUserId());
 
                 // Generate bill
-                String bill = generateBillText();
+                String billText = generateBillText();
 
                 JOptionPane.showMessageDialog(this,
-                        String.format("✓ Prescription dispensed successfully!\n\nTotal: ₹%.2f\nStock updated.",
+                        String.format("✓ Prescription dispensed successfully!\n\nTotal: ₹%.2f\nStock updated.\nBill saved to database.",
                                 totalBill),
                         "Success",
                         JOptionPane.INFORMATION_MESSAGE);
@@ -359,7 +396,7 @@ class PrescriptionDispensePanel extends JPanel {
                         JOptionPane.YES_NO_OPTION);
 
                 if (print == JOptionPane.YES_OPTION) {
-                    showPrintDialog(bill);
+                    showPrintDialog(billText);
                 }
 
                 refreshData();
@@ -371,6 +408,16 @@ class PrescriptionDispensePanel extends JPanel {
                 e.printStackTrace();
             }
         }
+    }
+
+    /**
+     * Get patient ID from medical record
+     */
+    private int getPatientIdFromRecord(int recordId) throws SQLException {
+        // You need to implement this method in MedicalRecordDAO
+        MedicalRecordDAO medicalRecordDAO = new MedicalRecordDAO();
+        MedicalRecord record = medicalRecordDAO.getMedicalRecordById(recordId);
+        return record != null ? record.getPatientId() : 0;
     }
 
     private String generateBillText() {
@@ -411,7 +458,7 @@ class PrescriptionDispensePanel extends JPanel {
                     if (medName.length() > 23)
                         medName = medName.substring(0, 23);
 
-                    bill.append(String.format("%-25s %5d ₹%9.2f ₹%9.2f\n",
+                    bill.append(String.format("%-25s %5d %9.2f ₹%9.2f\n",
                             medName, quantity, price, itemTotal));
 
                     bill.append(String.format("  Frequency: %s | Duration: %s\n",
