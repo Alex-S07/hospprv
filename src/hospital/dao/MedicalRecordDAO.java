@@ -60,6 +60,29 @@ public class MedicalRecordDAO {
         return records;
     }
 
+    public MedicalRecord getMedicalRecordById(int recordId) throws SQLException {
+    String sql = "SELECT * FROM medical_records WHERE record_id = ?";
+    
+    try (Connection conn = DatabaseConfig.getConnection();
+         PreparedStatement stmt = conn.prepareStatement(sql)) {
+        
+        stmt.setInt(1, recordId);
+        ResultSet rs = stmt.executeQuery();
+        
+        if (rs.next()) {
+            MedicalRecord record = new MedicalRecord();
+            record.setRecordId(rs.getInt("record_id"));
+            record.setPatientId(rs.getInt("patient_id"));
+            record.setDoctorId(rs.getInt("doctor_id"));
+            record.setAppointmentId(rs.getInt("appointment_id"));
+            record.setVisitDate(rs.getTimestamp("visit_date").toLocalDateTime());
+            record.setDiagnosis(rs.getString("diagnosis"));
+            return record;
+        }
+    }
+    return null;
+}
+
     public MedicalRecord getMedicalRecordByAppointment(int appointmentId) throws SQLException {
         String sql = "SELECT mr.*, " +
                 "p.first_name AS patient_name," +
@@ -85,16 +108,15 @@ public class MedicalRecordDAO {
 
     public boolean updateMedicalRecord(MedicalRecord record) throws SQLException {
         String sql = "UPDATE medical_records SET diagnosis = ?, treatment = ?, " +
-                "notes = ?, vital_signs = ? WHERE record_id = ?";
+                "vital_signs = ? WHERE record_id = ?";
 
         try (Connection conn = DatabaseConfig.getConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, record.getDiagnosis());
             stmt.setString(2, record.getTreatment());
-            stmt.setString(3, record.getNotes());
-            stmt.setString(4, record.getVitalSigns());
-            stmt.setInt(5, record.getRecordId());
+            stmt.setString(3, record.getVitalSigns());
+            stmt.setInt(4, record.getRecordId());
 
             return stmt.executeUpdate() > 0;
         }
@@ -115,7 +137,6 @@ public class MedicalRecordDAO {
         record.setSymptoms(rs.getString("symptoms"));
         record.setDiagnosis(rs.getString("diagnosis"));
         record.setTreatment(rs.getString("treatment"));
-        record.setNotes(rs.getString("notes"));
         record.setVitalSigns(rs.getString("vital_signs"));
 
         try {
