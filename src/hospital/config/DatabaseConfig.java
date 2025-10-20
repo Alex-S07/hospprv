@@ -27,9 +27,9 @@ public class DatabaseConfig {
     }
     
     public static Connection getConnection() throws SQLException {
-        String url = props.getProperty("db.url", "jdbc:mysql://localhost:3307/hospital_db");
-        String username = props.getProperty("db.username", "hospital_user");
-        String password = props.getProperty("db.password", "user123");
+        String url = props.getProperty("db.url", "jdbc:mysql://localhost:3306/hospital_db");
+        String username = props.getProperty("db.username", "root");
+        String password = props.getProperty("db.password", "");
         
         return DriverManager.getConnection(url, username, password);
     }

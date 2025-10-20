@@ -8,6 +8,7 @@ import hospital.views.doctor.DoctorDashboard;
 import hospital.views.doctor.PatientHistoryPanel;
 import hospital.views.receptionist.ReceptionistDashboard;
 import hospital.views.pharmacy.PharmacyDashboard;
+import hospital.views.laboratory.LaboratoryDashboard;
 
 import javax.swing.*;
 import java.awt.*;
@@ -168,7 +169,9 @@ public class LoginFrame extends JFrame {
 
     private void openDashboard(User user) {
         SwingUtilities.invokeLater(() -> {
-            switch (user.getRole()) {
+            String role = user.getRole().toUpperCase().trim(); // Normalize role for comparison
+            
+            switch (role) {
                 case "ADMIN":
                     new AdminDashboard(user).setVisible(true);
                     break;
@@ -181,9 +184,16 @@ public class LoginFrame extends JFrame {
                 case "PHARMACY":
                     new PharmacyDashboard(user).setVisible(true);
                     break;
+                case "LAB_ASSISTANT":
+                case "LAB ASSISTANT":
+                case "LABORATORY":
+                case "LABORATORY_ASSISTANT":
+                case "LAB":
+                    new LaboratoryDashboard(user).setVisible(true);
+                    break;
                 default:
                     JOptionPane.showMessageDialog(this, 
-                        "Unknown user role: " + user.getRole(),
+                        "Unknown user role: '" + user.getRole() + "'",
                         "Error", JOptionPane.ERROR_MESSAGE);
             }
         });

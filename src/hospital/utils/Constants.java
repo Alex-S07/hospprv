@@ -18,6 +18,7 @@ public class Constants {
     public static final String ROLE_DOCTOR = "DOCTOR";
     public static final String ROLE_RECEPTIONIST = "RECEPTIONIST";
     public static final String ROLE_PHARMACY = "PHARMACY";
+    public static final String ROLE_LAB_ASSISTANT = "LAB_ASSISTANT";
     
     // Appointment Status
     public static final String APPOINTMENT_SCHEDULED = "SCHEDULED";

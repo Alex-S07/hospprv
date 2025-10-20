@@ -32,7 +32,7 @@ class AddUserDialog extends JDialog {
         confirmPasswordField = new JPasswordField(20);
         emailField = new JTextField(20);
         
-        String[] roles = {"ADMIN", "RECEPTIONIST", "PHARMACY"};
+        String[] roles = {"ADMIN", "DOCTOR", "RECEPTIONIST", "PHARMACY", "LAB_ASSISTANT"};
         roleCombo = new JComboBox<>(roles);
     }
     

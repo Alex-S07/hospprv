@@ -297,4 +297,28 @@ public class DoctorDAO extends BaseDAO {
             return stmt.executeUpdate() > 0;
         }
     }
+    
+    /**
+     * Get the doctor_id from the doctors table using the user_id.
+     * 
+     * @param userId The user ID from the users table
+     * @return doctor_id if found, -1 otherwise
+     * @throws SQLException if database error occurs
+     */
+    public int getDoctorIdByUserId(int userId) throws SQLException {
+        String sql = "SELECT doctor_id FROM doctors WHERE user_id = ?";
+        
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setInt(1, userId);
+            ResultSet rs = stmt.executeQuery();
+            
+            if (rs.next()) {
+                return rs.getInt("doctor_id");
+            }
+            
+            return -1;
+        }
+    }
 }

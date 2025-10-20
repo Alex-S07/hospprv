@@ -14,11 +14,13 @@ public class DoctorDashboard extends BaseFrame {
     // Menu buttons
     private JButton consultationsBtn;
     private JButton scheduleBtn;
+    private JButton labTestsBtn;
     private JButton logoutBtn;
     
     // Content panels
     private PrescriptionAndHistoryPanel prescriptionPanel;
     private SchedulePanel schedulePanel;
+    private DoctorLabTestsPanel labTestsPanel;
     
     public DoctorDashboard(User user) {
         super("Doctor Dashboard - " + Constants.APP_NAME);
@@ -48,11 +50,13 @@ public class DoctorDashboard extends BaseFrame {
         // Create menu buttons
         consultationsBtn = createMenuButton("Consultations", "consultations");
         scheduleBtn = createMenuButton("Duty/Leave Schedule", "schedule");
+        labTestsBtn = createMenuButton("Lab Tests", "labtests");
         logoutBtn = createMenuButton("Logout", "logout");
         
         // Create content panels
         prescriptionPanel = new PrescriptionAndHistoryPanel(currentUser);
         schedulePanel = new SchedulePanel(currentUser);
+        labTestsPanel = new DoctorLabTestsPanel(currentUser);
     }
     
     @Override
@@ -63,6 +67,7 @@ public class DoctorDashboard extends BaseFrame {
         // Add both panels to card layout
         contentPanel.add(prescriptionPanel, "consultations");
         contentPanel.add(schedulePanel, "schedule");
+        contentPanel.add(labTestsPanel, "labtests");
         
         add(sidePanel, BorderLayout.WEST);
         add(contentPanel, BorderLayout.CENTER);
@@ -98,6 +103,8 @@ public class DoctorDashboard extends BaseFrame {
         sidePanel.add(consultationsBtn);
         sidePanel.add(Box.createRigidArea(new Dimension(0, 8)));
         sidePanel.add(scheduleBtn);
+        sidePanel.add(Box.createRigidArea(new Dimension(0, 8)));
+        sidePanel.add(labTestsBtn);
         sidePanel.add(Box.createVerticalGlue());
         sidePanel.add(logoutBtn);
         sidePanel.add(Box.createRigidArea(new Dimension(0, 20)));
@@ -134,6 +141,7 @@ public class DoctorDashboard extends BaseFrame {
     protected void setupEventHandlers() {
         consultationsBtn.addActionListener(e -> showConsultations());
         scheduleBtn.addActionListener(e -> showSchedule());
+        labTestsBtn.addActionListener(e -> showLabTests());
         logoutBtn.addActionListener(e -> handleLogout());
     }
     
@@ -146,6 +154,12 @@ public class DoctorDashboard extends BaseFrame {
         CardLayout cardLayout = (CardLayout) contentPanel.getLayout();
         cardLayout.show(contentPanel, "schedule");
         schedulePanel.refreshData();
+    }
+    
+    private void showLabTests() {
+        CardLayout cardLayout = (CardLayout) contentPanel.getLayout();
+        cardLayout.show(contentPanel, "labtests");
+        labTestsPanel.refreshData();
     }
     
     private void handleLogout() {

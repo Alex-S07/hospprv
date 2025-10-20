@@ -32,7 +32,7 @@ class EditUserDialog extends JDialog {
         usernameField = new JTextField(20);
         emailField = new JTextField(20);
         
-        String[] roles = {"ADMIN", "DOCTOR", "RECEPTIONIST", "PHARMACY"};
+        String[] roles = {"ADMIN", "DOCTOR", "RECEPTIONIST", "PHARMACY", "LAB_ASSISTANT"};
         roleCombo = new JComboBox<>(roles);
         
         activeCheckbox = new JCheckBox("Active");
