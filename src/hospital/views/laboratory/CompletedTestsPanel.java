@@ -7,7 +7,6 @@ import hospital.models.User;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.io.File;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.List;
@@ -25,8 +24,6 @@ public class CompletedTestsPanel extends JPanel {
 
     // Right side: read-only details
     private JTextArea requestDetailsArea;
-    private JButton openFileBtn;
-    private String currentFilePath;
 
     public CompletedTestsPanel(User user) {
         this.currentUser = user;
@@ -39,8 +36,8 @@ public class CompletedTestsPanel extends JPanel {
     private void initializeComponents() {
         setLayout(new BorderLayout());
 
-        // Table columns: Request ID, Patient, Doctor, Test Name, Result Value, Date Completed
-        String[] cols = {"Request ID", "Patient", "Doctor", "Test Name", "Result Value", "Date Completed"};
+        // Table columns: Request ID, Patient, Doctor, Test Name, Date Completed
+        String[] cols = {"Request ID", "Patient", "Doctor", "Test Name", "Date Completed"};
         tableModel = new DefaultTableModel(cols, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -58,10 +55,6 @@ public class CompletedTestsPanel extends JPanel {
         requestDetailsArea.setLineWrap(true);
         requestDetailsArea.setWrapStyleWord(true);
         requestDetailsArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
-
-        openFileBtn = new JButton("Open Result File");
-        openFileBtn.setEnabled(false);
-        openFileBtn.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 13));
     }
 
     private void setupLayout() {
@@ -74,12 +67,8 @@ public class CompletedTestsPanel extends JPanel {
         leftPanel.setBorder(BorderFactory.createTitledBorder("Completed Tests"));
 
         JPanel rightPanel = new JPanel(new BorderLayout(10, 10));
-        rightPanel.setBorder(BorderFactory.createTitledBorder("Test Results"));
+        rightPanel.setBorder(BorderFactory.createTitledBorder("Test Results (Read-Only)"));
         rightPanel.add(new JScrollPane(requestDetailsArea), BorderLayout.CENTER);
-        
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        buttonPanel.add(openFileBtn);
-        rightPanel.add(buttonPanel, BorderLayout.SOUTH);
 
         split.setLeftComponent(leftPanel);
         split.setRightComponent(rightPanel);
@@ -98,8 +87,6 @@ public class CompletedTestsPanel extends JPanel {
                 }
             }
         });
-
-        openFileBtn.addActionListener(e -> openResultFile());
     }
 
     /**
@@ -116,10 +103,9 @@ public class CompletedTestsPanel extends JPanel {
                 Object[] row = {
                     request.getRequestId(),
                     request.getPatientName(),
-                    "Dr. " + getDoctorName(request),
+                    request.getDoctorName(),
                     request.getTestName(),
-                    request.getResultValue() != null ? request.getResultValue() : "N/A",
-                    request.getUploadDate() != null ? dateFormat.format(request.getUploadDate()) : ""
+                    request.getCompletedDate() != null ? dateFormat.format(request.getCompletedDate()) : "N/A"
                 };
                 tableModel.addRow(row);
             }
@@ -138,7 +124,6 @@ public class CompletedTestsPanel extends JPanel {
             
             if (request == null) {
                 requestDetailsArea.setText("Test request not found.");
-                openFileBtn.setEnabled(false);
                 return;
             }
             
@@ -155,71 +140,35 @@ public class CompletedTestsPanel extends JPanel {
             details.append("Patient: ").append(request.getPatientName()).append("\n");
             details.append("Test: ").append(request.getTestName()).append("\n");
             details.append("Requested By: Dr. ").append(getDoctorName(request)).append("\n");
-            details.append("Request Date: ").append(dateFormat.format(request.getRequestDate())).append("\n\n");
+            details.append("Request Date: ").append(dateFormat.format(request.getRequestDate())).append("\n");
             
-            details.append("DOCTOR'S REMARKS:\n");
-            details.append("───────────────────────────────────────────────────────\n");
-            details.append(request.getRemarks() != null ? request.getRemarks() : "No remarks provided").append("\n\n");
+            if (request.getCompletedDate() != null) {
+                details.append("Completed Date: ").append(dateFormat.format(request.getCompletedDate())).append("\n");
+            }
+            details.append("\n");
+            
+            if (request.getRemarks() != null && !request.getRemarks().isEmpty()) {
+                details.append("DOCTOR'S REMARKS:\n");
+                details.append("───────────────────────────────────────────────────────\n");
+                details.append(request.getRemarks()).append("\n\n");
+            }
             
             details.append("═══════════════════════════════════════════════════════\n");
             details.append("                    LAB RESULTS\n");
             details.append("═══════════════════════════════════════════════════════\n\n");
             
-            details.append("Result Value: ").append(request.getResultValue() != null ? request.getResultValue() : "N/A").append("\n\n");
-            
-            details.append("Lab Comments:\n");
-            details.append("───────────────────────────────────────────────────────\n");
-            details.append(request.getResultComments() != null ? request.getResultComments() : "No comments").append("\n\n");
-            
-            details.append("Result File: ").append(request.getResultFile() != null ? request.getResultFile() : "No file uploaded").append("\n");
-            
-            if (request.getUploadDate() != null) {
-                details.append("Upload Date: ").append(dateFormat.format(request.getUploadDate())).append("\n");
+            if (request.getResult() != null && !request.getResult().isEmpty()) {
+                details.append(request.getResult()).append("\n");
+            } else {
+                details.append("No result recorded.\n");
             }
             
             requestDetailsArea.setText(details.toString());
             requestDetailsArea.setCaretPosition(0);
             
-            // Enable file button if file exists
-            currentFilePath = request.getResultFile();
-            openFileBtn.setEnabled(currentFilePath != null && !currentFilePath.trim().isEmpty());
-            
         } catch (SQLException e) {
             e.printStackTrace();
             requestDetailsArea.setText("Error loading test details: " + e.getMessage());
-            openFileBtn.setEnabled(false);
-        }
-    }
-
-    private void openResultFile() {
-        if (currentFilePath == null || currentFilePath.trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, 
-                "No result file available.",
-                "File Not Found", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        
-        File file = new File(currentFilePath);
-        if (!file.exists()) {
-            JOptionPane.showMessageDialog(this, 
-                "File not found: " + currentFilePath,
-                "File Not Found", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-        
-        try {
-            if (Desktop.isDesktopSupported()) {
-                Desktop.getDesktop().open(file);
-            } else {
-                JOptionPane.showMessageDialog(this, 
-                    "Cannot open file: Desktop not supported on this system.",
-                    "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this, 
-                "Error opening file: " + e.getMessage(),
-                "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 

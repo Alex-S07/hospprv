@@ -19,6 +19,8 @@ public class PrescriptionAndHistoryPanel extends JPanel {
     private MedicalRecordDAO medicalRecordDAO;
     private PrescriptionDAO prescriptionDAO;
     private InventoryDAO inventoryDAO;
+    private TestDAO testDAO;
+    private DoctorDAO doctorDAO;
 
     // UI Components
     private JTable appointmentTable;
@@ -27,6 +29,7 @@ public class PrescriptionAndHistoryPanel extends JPanel {
     private JTextArea previousHistoryArea;
     private JTextArea prescriptionArea;
     private JComboBox<String> medicineCombo;
+    private JComboBox<Test> testCombo;
     private JTextField frequencyField, durationField;
     private JTextArea diagnosisArea, symptomsArea;
     private JLabel totalCostLabel;
@@ -34,6 +37,8 @@ public class PrescriptionAndHistoryPanel extends JPanel {
     private Appointment selectedAppointment;
     private Patient selectedPatient;
     private List<Medicine> medicinesList;
+    private List<Test> testsList;
+    private int doctorId;
 
     public PrescriptionAndHistoryPanel(User user) {
         this.currentUser = user;
@@ -42,10 +47,22 @@ public class PrescriptionAndHistoryPanel extends JPanel {
         this.medicalRecordDAO = new MedicalRecordDAO();
         this.prescriptionDAO = new PrescriptionDAO();
         this.inventoryDAO = new InventoryDAO();
+        this.testDAO = new TestDAO();
+        this.doctorDAO = new DoctorDAO();
+        
+        // Get doctor ID
+        try {
+            this.doctorId = doctorDAO.getDoctorIdByUserId(currentUser.getUserId());
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Error loading doctor ID: " + e.getMessage(), 
+                "Error", JOptionPane.ERROR_MESSAGE);
+            this.doctorId = -1;
+        }
 
         initializeUI();
         loadTodaysAppointments();
         loadMedicines();
+        loadTests();
     }
 
     private void initializeUI() {
@@ -171,6 +188,19 @@ public class PrescriptionAndHistoryPanel extends JPanel {
         formPanel.add(new JLabel());
         formPanel.add(addMedicineBtn);
 
+        // Lab Test selection
+        testCombo = new JComboBox<>();
+        formPanel.add(new JLabel("Lab Test:"));
+        formPanel.add(testCombo);
+        
+        // Request Test button
+        JButton requestTestBtn = new JButton("Request Test");
+        requestTestBtn.setBackground(new Color(65, 105, 225));
+        requestTestBtn.setForeground(Color.WHITE);
+        requestTestBtn.addActionListener(e -> requestLabTest());
+        formPanel.add(new JLabel());
+        formPanel.add(requestTestBtn);
+
         // Total cost display
         totalCostLabel = new JLabel("Total Cost: ₹0.00");
         totalCostLabel.setFont(new Font("Arial", Font.BOLD, 14));
@@ -294,6 +324,20 @@ public class PrescriptionAndHistoryPanel extends JPanel {
         }
     }
 
+    private void loadTests() {
+        try {
+            testsList = testDAO.getAllTests();
+            testCombo.removeAllItems();
+            testCombo.addItem(null); // Placeholder for empty selection
+            
+            for (Test test : testsList) {
+                testCombo.addItem(test);
+            }
+        } catch (SQLException e) {
+            showError("Error loading tests: " + e.getMessage());
+        }
+    }
+
     // ============ ACTION METHODS ============
 
     private void startConsultation() {
@@ -308,6 +352,57 @@ public class PrescriptionAndHistoryPanel extends JPanel {
             loadTodaysAppointments();
         } catch (SQLException e) {
             showError("Error: " + e.getMessage());
+        }
+    }
+
+    private void requestLabTest() {
+        if (selectedPatient == null) {
+            showError("Please select a patient first.");
+            return;
+        }
+        
+        Test selectedTest = (Test) testCombo.getSelectedItem();
+        if (selectedTest == null) {
+            showError("Please select a lab test.");
+            return;
+        }
+        
+        if (doctorId == -1) {
+            showError("Doctor ID not found. Cannot request test.");
+            return;
+        }
+        
+        try {
+            String remarks = JOptionPane.showInputDialog(this, 
+                "Enter remarks/instructions for the lab test (optional):", 
+                "Test Remarks", 
+                JOptionPane.PLAIN_MESSAGE);
+            
+            if (remarks == null) {
+                // User cancelled
+                return;
+            }
+            
+            boolean success = testDAO.insertTestRequest(
+                doctorId, 
+                selectedPatient.getPatientId(), 
+                selectedTest.getTestId(), 
+                remarks.trim().isEmpty() ? null : remarks.trim()
+            );
+            
+            if (success) {
+                JOptionPane.showMessageDialog(this, 
+                    "Lab test requested successfully!", 
+                    "Success", 
+                    JOptionPane.INFORMATION_MESSAGE);
+                testCombo.setSelectedIndex(0); // Reset selection
+            } else {
+                showError("Failed to request lab test.");
+            }
+            
+        } catch (SQLException e) {
+            showError("Error requesting lab test: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 

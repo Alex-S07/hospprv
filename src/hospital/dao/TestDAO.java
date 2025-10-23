@@ -27,14 +27,12 @@ public class TestDAO extends BaseDAO {
         
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT tr.request_id, tr.patient_id, tr.doctor_id, tr.test_id, ");
-        sql.append("tr.request_date, tr.status, tr.remarks, ");
+        sql.append("tr.request_date, tr.status, tr.remarks, tr.result, tr.completed_date, ");
         sql.append("CONCAT(p.first_name, ' ', p.last_name) AS patient_name, ");
-        sql.append("t.test_name, ");
-        sql.append("r.result_value, r.comments AS result_comments, r.result_file, r.upload_date ");
+        sql.append("t.test_name ");
         sql.append("FROM test_requests tr ");
         sql.append("JOIN patients p ON tr.patient_id = p.patient_id ");
         sql.append("JOIN tests t ON tr.test_id = t.test_id ");
-        sql.append("LEFT JOIN test_results r ON tr.request_id = r.request_id ");
         sql.append("WHERE tr.doctor_id = ? ");
         
         if (status != null && !status.isEmpty()) {
@@ -73,13 +71,11 @@ public class TestDAO extends BaseDAO {
                 request.setTestName(rs.getString("test_name"));
                 
                 // Result data (if completed)
-                request.setResultValue(rs.getString("result_value"));
-                request.setResultComments(rs.getString("result_comments"));
-                request.setResultFile(rs.getString("result_file"));
+                request.setResult(rs.getString("result"));
                 
-                Timestamp uploadDate = rs.getTimestamp("upload_date");
-                if (uploadDate != null) {
-                    request.setUploadDate(new java.util.Date(uploadDate.getTime()));
+                Timestamp completedDate = rs.getTimestamp("completed_date");
+                if (completedDate != null) {
+                    request.setCompletedDate(new java.util.Date(completedDate.getTime()));
                 }
                 
                 requests.add(request);
@@ -108,15 +104,13 @@ public class TestDAO extends BaseDAO {
         TestRequest request = null;
         
         String sql = "SELECT tr.request_id, tr.patient_id, tr.doctor_id, tr.test_id, " +
-                    "tr.request_date, tr.status, tr.remarks, " +
+                    "tr.request_date, tr.status, tr.remarks, tr.result, tr.completed_date, " +
                     "CONCAT(p.first_name, ' ', p.last_name) AS patient_name, " +
                     "p.gender, p.date_of_birth, " +
-                    "t.test_name, t.description, t.normal_range, t.unit, " +
-                    "r.result_value, r.comments AS result_comments, r.result_file, r.upload_date " +
+                    "t.test_name, t.description, t.normal_range, t.unit " +
                     "FROM test_requests tr " +
                     "JOIN patients p ON tr.patient_id = p.patient_id " +
                     "JOIN tests t ON tr.test_id = t.test_id " +
-                    "LEFT JOIN test_results r ON tr.request_id = r.request_id " +
                     "WHERE tr.request_id = ?";
         
         Connection conn = null;
@@ -143,13 +137,11 @@ public class TestDAO extends BaseDAO {
                 request.setRemarks(rs.getString("remarks"));
                 request.setPatientName(rs.getString("patient_name"));
                 request.setTestName(rs.getString("test_name"));
-                request.setResultValue(rs.getString("result_value"));
-                request.setResultComments(rs.getString("result_comments"));
-                request.setResultFile(rs.getString("result_file"));
+                request.setResult(rs.getString("result"));
                 
-                Timestamp uploadDate = rs.getTimestamp("upload_date");
-                if (uploadDate != null) {
-                    request.setUploadDate(new java.util.Date(uploadDate.getTime()));
+                Timestamp completedDate = rs.getTimestamp("completed_date");
+                if (completedDate != null) {
+                    request.setCompletedDate(new java.util.Date(completedDate.getTime()));
                 }
             }
             

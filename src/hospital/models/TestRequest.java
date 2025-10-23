@@ -18,10 +18,8 @@ public class TestRequest {
     private String patientName;
     private String doctorName;
     private String testName;
-    private String resultValue;
-    private String resultComments;
-    private String resultFile;
-    private Date uploadDate;
+    private String result; // Simplified result field stored directly in test_requests
+    private Date completedDate; // Date when test was completed
 
     // No-args constructor
     public TestRequest() {
@@ -119,36 +117,20 @@ public class TestRequest {
         this.testName = testName;
     }
 
-    public String getResultValue() {
-        return resultValue;
+    public String getResult() {
+        return result;
     }
 
-    public void setResultValue(String resultValue) {
-        this.resultValue = resultValue;
+    public void setResult(String result) {
+        this.result = result;
     }
 
-    public String getResultComments() {
-        return resultComments;
+    public Date getCompletedDate() {
+        return completedDate;
     }
 
-    public void setResultComments(String resultComments) {
-        this.resultComments = resultComments;
-    }
-
-    public String getResultFile() {
-        return resultFile;
-    }
-
-    public void setResultFile(String resultFile) {
-        this.resultFile = resultFile;
-    }
-
-    public Date getUploadDate() {
-        return uploadDate;
-    }
-
-    public void setUploadDate(Date uploadDate) {
-        this.uploadDate = uploadDate;
+    public void setCompletedDate(Date completedDate) {
+        this.completedDate = completedDate;
     }
 
     @Override

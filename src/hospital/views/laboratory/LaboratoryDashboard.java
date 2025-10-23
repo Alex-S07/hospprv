@@ -17,7 +17,6 @@ public class LaboratoryDashboard extends BaseFrame {
     private JPanel contentPanel;
 
     // Menu buttons
-    private JButton dashboardBtn;
     private JButton pendingRequestsBtn;
     private JButton completedTestsBtn;
     private JButton logoutBtn;
@@ -48,10 +47,9 @@ public class LaboratoryDashboard extends BaseFrame {
         contentPanel = new JPanel(new CardLayout());
         contentPanel.setBackground(Constants.BACKGROUND_COLOR);
 
-    dashboardBtn = createMenuButton("Dashboard", "dashboard");
-    pendingRequestsBtn = createMenuButton("Pending Requests", "pendingRequests");
-    completedTestsBtn = createMenuButton("Completed Tests", "completedTests");
-    logoutBtn = createMenuButton("Logout", "logout");
+        pendingRequestsBtn = createMenuButton("Pending Requests", "pendingRequests");
+        completedTestsBtn = createMenuButton("Completed Tests", "completedTests");
+        logoutBtn = createMenuButton("Logout", "logout");
 
         pendingRequestsPanel = new PendingRequestsPanel(currentUser);
         completedTestsPanel = new CompletedTestsPanel(currentUser);

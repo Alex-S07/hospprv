@@ -8,7 +8,8 @@ import java.util.List;
 
 /**
  * Data Access Object for laboratory requests and results.
- * Handles all database operations for lab tests using test_requests and test_results tables.
+ * Handles all database operations for lab tests using test_requests table only.
+ * Results are stored directly in the test_requests.result field.
  */
 public class LabDAO extends BaseDAO {
 
@@ -24,16 +25,14 @@ public class LabDAO extends BaseDAO {
         List<TestRequest> requests = new ArrayList<>();
         
         String sql = "SELECT tr.request_id, tr.patient_id, tr.doctor_id, tr.test_id, " +
-                    "tr.request_date, tr.status, tr.remarks, " +
+                    "tr.request_date, tr.status, tr.remarks, tr.result, tr.completed_date, " +
                     "CONCAT(p.first_name, ' ', p.last_name) AS patient_name, " +
-                    "CONCAT(d.full_name) AS doctor_name, " +
-                    "t.test_name, " +
-                    "r.result_value, r.upload_date " +
+                    "d.full_name AS doctor_name, " +
+                    "t.test_name " +
                     "FROM test_requests tr " +
                     "JOIN patients p ON tr.patient_id = p.patient_id " +
                     "JOIN doctors d ON tr.doctor_id = d.doctor_id " +
                     "JOIN tests t ON tr.test_id = t.test_id " +
-                    "LEFT JOIN test_results r ON tr.request_id = r.request_id " +
                     "WHERE tr.status = ? " +
                     "ORDER BY tr.request_date DESC";
         
@@ -62,11 +61,11 @@ public class LabDAO extends BaseDAO {
                 request.setPatientName(rs.getString("patient_name"));
                 request.setDoctorName(rs.getString("doctor_name"));
                 request.setTestName(rs.getString("test_name"));
-                request.setResultValue(rs.getString("result_value"));
+                request.setResult(rs.getString("result"));
                 
-                Timestamp uploadDate = rs.getTimestamp("upload_date");
-                if (uploadDate != null) {
-                    request.setUploadDate(new java.util.Date(uploadDate.getTime()));
+                Timestamp completedDate = rs.getTimestamp("completed_date");
+                if (completedDate != null) {
+                    request.setCompletedDate(new java.util.Date(completedDate.getTime()));
                 }
                 
                 requests.add(request);
@@ -85,7 +84,7 @@ public class LabDAO extends BaseDAO {
     }
 
     /**
-     * Fetch full details of a selected request including patient info and results.
+     * Fetch full details of a selected request including patient info.
      * 
      * @param requestId The request ID
      * @return TestRequest with complete details
@@ -95,17 +94,15 @@ public class LabDAO extends BaseDAO {
         TestRequest request = null;
         
         String sql = "SELECT tr.request_id, tr.patient_id, tr.doctor_id, tr.test_id, " +
-                    "tr.request_date, tr.status, tr.remarks, " +
+                    "tr.request_date, tr.status, tr.remarks, tr.result, tr.completed_date, " +
                     "CONCAT(p.first_name, ' ', p.last_name) AS patient_name, " +
                     "p.gender, p.date_of_birth, " +
                     "d.full_name AS doctor_name, " +
-                    "t.test_name, t.description, t.normal_range, " +
-                    "r.result_value, r.comments, r.result_file, r.upload_date " +
+                    "t.test_name, t.description, t.normal_range " +
                     "FROM test_requests tr " +
                     "JOIN patients p ON tr.patient_id = p.patient_id " +
                     "JOIN doctors d ON tr.doctor_id = d.doctor_id " +
                     "JOIN tests t ON tr.test_id = t.test_id " +
-                    "LEFT JOIN test_results r ON tr.request_id = r.request_id " +
                     "WHERE tr.request_id = ?";
         
         Connection conn = null;
@@ -133,13 +130,11 @@ public class LabDAO extends BaseDAO {
                 request.setPatientName(rs.getString("patient_name"));
                 request.setDoctorName(rs.getString("doctor_name"));
                 request.setTestName(rs.getString("test_name"));
-                request.setResultValue(rs.getString("result_value"));
-                request.setResultComments(rs.getString("comments"));
-                request.setResultFile(rs.getString("result_file"));
+                request.setResult(rs.getString("result"));
                 
-                Timestamp uploadDate = rs.getTimestamp("upload_date");
-                if (uploadDate != null) {
-                    request.setUploadDate(new java.util.Date(uploadDate.getTime()));
+                Timestamp completedDate = rs.getTimestamp("completed_date");
+                if (completedDate != null) {
+                    request.setCompletedDate(new java.util.Date(completedDate.getTime()));
                 }
             }
             
@@ -156,76 +151,34 @@ public class LabDAO extends BaseDAO {
     }
 
     /**
-     * Insert test result and update request status to Completed.
-     * This is a transactional operation - both must succeed or both fail.
+     * Submit test result and update request status to Completed.
+     * Stores result directly in test_requests table.
      * 
      * @param requestId The test request ID
-     * @param labAssistantId The lab assistant user ID
-     * @param resultValue The test result value
-     * @param comments Lab comments
-     * @param filePath Path to uploaded result file
-     * @return true if both operations successful
+     * @param resultText The test result text
+     * @return true if update successful
      * @throws SQLException if database error occurs
      */
-    public boolean insertTestResult(int requestId, int labAssistantId, String resultValue, 
-                                    String comments, String filePath) throws SQLException {
+    public boolean submitTestResult(int requestId, String resultText) throws SQLException {
+        String sql = "UPDATE test_requests SET result = ?, status = 'Completed', completed_date = NOW() " +
+                    "WHERE request_id = ?";
+        
         Connection conn = null;
         try {
             conn = getConnection();
-            conn.setAutoCommit(false); // Start transaction
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, resultText);
+            stmt.setInt(2, requestId);
             
-            // Insert result
-            String insertSql = "INSERT INTO test_results (request_id, lab_assistant_id, result_value, comments, result_file) " +
-                              "VALUES (?, ?, ?, ?, ?)";
-            PreparedStatement insertStmt = conn.prepareStatement(insertSql);
-            insertStmt.setInt(1, requestId);
-            insertStmt.setInt(2, labAssistantId);
-            insertStmt.setString(3, resultValue);
-            insertStmt.setString(4, comments);
-            insertStmt.setString(5, filePath);
+            int rowsAffected = stmt.executeUpdate();
+            stmt.close();
             
-            int rowsInserted = insertStmt.executeUpdate();
-            insertStmt.close();
-            
-            if (rowsInserted == 0) {
-                conn.rollback();
-                return false;
-            }
-            
-            // Update status
-            String updateSql = "UPDATE test_requests SET status = 'Completed' WHERE request_id = ?";
-            PreparedStatement updateStmt = conn.prepareStatement(updateSql);
-            updateStmt.setInt(1, requestId);
-            
-            int rowsUpdated = updateStmt.executeUpdate();
-            updateStmt.close();
-            
-            if (rowsUpdated == 0) {
-                conn.rollback();
-                return false;
-            }
-            
-            conn.commit(); // Commit transaction
-            return true;
+            return rowsAffected > 0;
             
         } catch (SQLException e) {
-            if (conn != null) {
-                try {
-                    conn.rollback();
-                } catch (SQLException ex) {
-                    ex.printStackTrace();
-                }
-            }
             e.printStackTrace();
             throw e;
         } finally {
-            if (conn != null) {
-                try {
-                    conn.setAutoCommit(true);
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
             closeConnection(conn);
         }
     }
